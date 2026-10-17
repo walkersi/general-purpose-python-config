@@ -1,0 +1,99 @@
+{
+    "data_types": [
+        {
+            "name": "card_number",
+            "valid": {
+                "regex": "^[0-9]{16}$"
+            }
+        },
+        {
+            "name": "distance",
+            "valid": {
+                "units": ["m", "miles", "mi", "km", "cm", "mm", "inch", "ft", "feet"],
+                "target_unit": "m",
+                "conversion": {
+                    "km": "1000m",
+                    "mi": "miles",
+                    "ft": "feet"
+                },
+                "range": {
+                    "greater_than": 0
+                }
+            }
+        },
+        {
+            "name": "dog",
+            "valid": {
+                "enum": ["golden retriever", "labrador", "huskie"],
+                "case_sensitive": false
+            }
+        },
+        {
+            "file": "more_types.json",
+            "___comment":" also allow data_types: more_types.json"
+        }
+    ],
+    "structure": {
+        "field1": {
+            "required": true,
+            "type": "positive_number",
+            "default": 1
+        },
+        "field2": {
+            "required": false,
+            "type": "string",
+            "default": ""
+        },
+        "field3": {
+            "required": true,
+            "type": "dog",
+            "default": "labrador"
+        },
+        "field4": {
+            "required": false,
+            "type": {
+                "valid": {
+                    "___comment": "see types as above, but inline"
+                }
+            }
+        },
+        "field5": {
+            "required": true,
+            "type": {
+                "list": {
+                    "type": "string"
+                }
+            }
+        },
+        "field6": {
+            "required": true,
+            "type": {
+                "set": {
+                    "type": "object",
+                    "shape": {
+                        "field1": "... as above; a subconfig"
+                    }
+                },
+                "size": {
+                    "range": {
+                        "greater_than": 3,
+                        "less_than": 8
+                    }
+                }
+            }
+        },
+        "field7": {
+            "___comment": "desireable to support more compact notation of collections",
+            "required": true,
+            "type": {
+                "set": "object",
+                "size": "3 < n < 8",
+                "object.shape": {
+                    "...":"..."
+                }
+            }
+            
+
+        }
+    }
+}
