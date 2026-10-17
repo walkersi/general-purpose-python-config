@@ -1,0 +1,23 @@
+Provided types and parent types
+-number
+-positive number
+-negative number
+-integer
+-positive integer
+-negative integer
+-percentage
+-x < n <= x2 --> shorthand for "range" (greater_than, less_than)
+-precision (of floats)
+-regex
+-string
+-alphanumeric
+-character
+-enum
+-unit
+-discrete unit
+  - integer unit
+-boolean
+
+-list [type]
+-set [type]
+-object
