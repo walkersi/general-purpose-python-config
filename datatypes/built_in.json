@@ -40,7 +40,7 @@
         {
             "name": ["boolean", "bool"],
             "valid": {
-                "enum": [true, false, "True", "False", "true", "false", 1, 0]
+                "enum": [true, false]
             },
             "description": "Must be a Boolean value (true/false)"
         },
