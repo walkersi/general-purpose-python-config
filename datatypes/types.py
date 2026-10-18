@@ -13,7 +13,11 @@ COMMENT = "__comment"
 class Type:
     # where valid is a predicate on a given value that returns true if the given value
     # is of this type (incorporating parent predicates)
-    def __init__(self, name: str, parent: Type, valid, description = None, aliases: list = None):
+    # where yield as is a function in form f(value) which returns what value should be passed up
+    # to the application from a given config value (e.g. to resolve aliases to a default)
+    # by default, pass up the value as-is
+    def __init__(self, name: str, parent: Type, 
+                 valid, yield_as = lambda value: value, description = None, aliases: list = None):
         # system uses this name, users can use aliases if they want to
         self.name = name
         # store parent (which may be the default root, data)
