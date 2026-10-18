@@ -26,6 +26,21 @@ def get_or_default(dictionary: dict, field: str, default):
         return dictionary[field]
     return default
 
+# tries to put value into dict under field key - returns True if key not already present
+# if already present, does not replace original value, returns False
+def put_no_replace(dictionary: dict, field: str, value):
+    if field in dictionary:
+        return False
+    dictionary[field] = value
+    return True
+
+# tries to put value into dict under field key - errors if key already in dict
+# (i.e. does not replace)
+# raises a key error (by default)
+def put_or_error(dictionary: dict, field: str, value, exception: Exception=None):
+    if not put_no_replace(dictionary, field, value):
+        raise exception if exception != None else KeyError(f"{field} already has value")
+
 # returns true if value is exactly the desired type, or if it can be "losslessly" converted 
 # to that type (e.g. int for float, but not float for int)
 def is_type_or_equivalent(value, desired_type: type):
