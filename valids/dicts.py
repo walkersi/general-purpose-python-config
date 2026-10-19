@@ -1,12 +1,6 @@
+from valids.casts import is_type_or_equivalent
 # functions for working with uncertain dicts more conveniently
 # - especially with respect to validation and specific error reporting
-
-# it is 'safe' to cast from key to any of value
-# in that no meaningful information will be lost
-SAFE_TO_CAST = {
-    int: {float},
-    set: {list}
-}
 
 # checks if field is a key in dict - if it is, returns the corresponding value.
 # if not, throws an exception - either the one provided, or a standard
@@ -41,19 +35,6 @@ def put_or_error(dictionary: dict, field: str, value, exception: Exception=None)
     if not put_no_replace(dictionary, field, value):
         raise exception if exception != None else KeyError(f"{field} already has value")
 
-# returns true if value is exactly the desired type, or if it can be "losslessly" converted 
-# to that type (e.g. int for float, but not float for int)
-def is_type_or_equivalent(value, desired_type: type):
-    # check whether type matches
-    actual_type = type(value)
-    if actual_type == desired_type:
-        return True
-    # check if its a reasonable equivalent
-    if desired_type in get_or_default(SAFE_TO_CAST, actual_type, {}):
-        return True
-
-    return False
-
 # checks if field is a key in dict AND that its value exactly or losslessly is the given type
 # returns it if it is, as the desired type
 # if not, raises either KeyError or TypeError accordingly (or the relevant specified exception)
@@ -67,7 +48,7 @@ def get_as_type_or_error(dictionary: dict, field: str, desired_type: type,
         return desired_type(value)
     # select default exception
     if type_exception == None:
-        type_exception = TypeError(f"Field {field} with value {value} was not of type {desired_type} - actual type was {actual_type}")
+        type_exception = TypeError(f"Field {field} with value {value} was not of type {desired_type} - actual type was {type(value)}")
     raise type_exception
 
 

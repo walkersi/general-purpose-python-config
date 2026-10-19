@@ -1,5 +1,6 @@
 from exceptions.structure_exceptions import *
 from valids.dicts import *
+from valids.casts import is_type_or_equivalent
 import re
 # define rules for interpretting validity dictionaries into constraint checking functions
 # and rejecting mis-formatted ones
