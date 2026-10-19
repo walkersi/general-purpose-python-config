@@ -143,7 +143,7 @@ def merge(dict_main: dict, dict_other: dict):
 # assuming dictionary's VALUES are all unique, 
 # returns the values as keys matched to the original keys
 def invert(dict: dict):
-    for key, value in dict.items():
+    for key, value in set(dict.items()):
         del dict[key]
         dict[value] = key
     return dict
@@ -152,6 +152,6 @@ def invert(dict: dict):
 # and are not equal to any keys
 # returns the key-value inversion of the dict merged with the current dict
 def and_invert(dict: dict):
-    for key, value in dict.items():
+    for key, value in set(dict.items()):
         dict[value] = key
     return dict
