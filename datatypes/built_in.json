@@ -15,7 +15,7 @@
             "description": "Must be a single character"
         },
         {
-            "name": ["number", "num"],
+            "name": ["number", "num", "real", "float", "double"],
             "valid": {
                 "python": "float"
             },
