@@ -5,7 +5,7 @@ from datatypes.constraints import *
 from exceptions.structure_exceptions import BadTypeDefinition
 
 TYPES = {} # mappings of type name to Type
-RESERVED_NAMES = {} # set all names reserved as types or aliases
+RESERVED_NAMES = set() # set of all names reserved as types or aliases
 
 # comments can be in string/array fields under this name
 COMMENT = "__comment"
@@ -31,8 +31,10 @@ class Type:
         self.aliases = set(aliases) if aliases else set()
         self.aliases.add(name)
         # add the name-Type mapping and update the set of reserved name/aliases
-        TYPES[self.name] = self
-        RESERVED_NAMES |= aliases
+        global RESERVED_NAMES, TYPES
+        for alias in self.aliases:
+            TYPES[alias] = self
+        RESERVED_NAMES |= self.aliases
 
     def get_parent(self):
         return self.parent
@@ -62,7 +64,7 @@ def default_or_of_type(definition: dict, field: str, desired_type: type, default
 
 def reject_unrecognised_keys(dictionary: dict, recognised: set[str]):
     # always allow comments
-    recognised |= COMMENT
+    recognised.add(COMMENT)
     # check for unknown keys
     excess = has_excess_keys(dictionary, recognised)
     if excess:
@@ -75,7 +77,7 @@ def construct_validity_constraints(validity: dict, parent_type):
         # get the parent type's constraints
         parent_valid = parent_type.is_valid
 
-    reject_unrecognised_keys(validity, CONSTRAINT_FIELDS)
+    reject_unrecognised_keys(validity, set(CONSTRAINT_FIELDS.keys()))
 
     # get the correct constraint handler function
     handler = classify_constraint_handler(validity)
@@ -101,6 +103,8 @@ def parse_type(definition: dict):
     if reserved:
         raise BadTypeDefinition(f"Type name(s) must be unique - {reserved} are already in use")
 
+    print("Constructing type:", type_name)
+
     # check for an existing parent type
     parent_type_name = default_or_of_type(definition, "parent", str, DATA.get_name())
     parent_type = get_or_error(TYPES, parent_type_name, 
@@ -116,7 +120,9 @@ def parse_type(definition: dict):
 
     # create the type
     defined_type = Type(type_name, parent_type, is_valid, yield_as=yield_as, 
-                        type_description=type_description, aliases=aliases)
+                        description=type_description, aliases=aliases)
+
+    print("Created type:", type_name)
 
     return defined_type
 
@@ -126,7 +132,22 @@ def parse_type_file(type_file: dict):
     for defintion in type_definitions:
         parse_type(defintion)
 
+# returns all unique types
+def get_all_types():
+    return set(TYPES.values())
+
+# returns set of all canonical names of types
+def get_all_type_names():
+    return set([type.name for type in get_all_types()])
+
+# returns set of all type names AND aliases
+def get_all_type_aliases():
+    return RESERVED_NAMES
+
+# returns type given its canonical name or alias
+def get_type(name: str):
+    return get_or_error(TYPES, name, UndefinedType(f"Type {name} does not exist."))
 
 def print_all_types():
-    for type in TYPES:
-        print(f"Type: {type.name}")    
+    for name in get_all_type_names():
+        print(f"Type: {name}")
