@@ -52,6 +52,8 @@ def is_type_or_equivalent(value, desired_type: type):
     if desired_type in get_or_default(SAFE_TO_CAST, actual_type, {}):
         return True
 
+    return False
+
 # checks if field is a key in dict AND that its value exactly or losslessly is the given type
 # returns it if it is, as the desired type
 # if not, raises either KeyError or TypeError accordingly (or the relevant specified exception)
