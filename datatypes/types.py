@@ -1,8 +1,10 @@
 # parses arbitrary type definitions from dict (from json)
 from valids.dicts import *
 from valids.lists import *
+from abstracts.tree import Tree
 from datatypes.constraints import *
 from exceptions.structure_exceptions import BadTypeDefinition
+from collections import deque
 
 TYPES = {} # mappings of type name to Type
 RESERVED_NAMES = set() # set of all names reserved as types or aliases
@@ -90,8 +92,10 @@ def construct_validity_constraints(validity: dict, parent_type):
     return is_valid, yield_as
         
 
-# parse an individual type definition entry and return a Type or throw an error
-def parse_type(definition: dict):
+# parse an the header fields of a type definition (name/description/parent)
+# and throw an error if any are wrong, else return
+# name, aliases, parent type name, description
+def parse_type_header(definition: dict):
     # all types need a name (or group of aliases)
     if not is_dict_with_typed_keys(definition, {"name": {list, str}}, only=False):
         raise BadTypeDefinition(f"Type has no name field in type {definition}")
@@ -103,34 +107,94 @@ def parse_type(definition: dict):
     if reserved:
         raise BadTypeDefinition(f"Type name(s) must be unique - {reserved} are already in use")
 
-    print("Constructing type:", type_name)
+    print("Parsing type header:", type_name)
 
-    # check for an existing parent type
+    # get parent type name (do not validate yet, since field is read sequentially)
     parent_type_name = default_or_of_type(definition, "parent", str, DATA.get_name())
-    parent_type = get_or_error(TYPES, parent_type_name, 
-                               exception=BadTypeDefinition(f"Parent type {parent_type_name} could not be found for type {type_name}"))
-    # TODO if user defined type is child of type later in file, this will error. fix.
 
     # get the description or leave blank
     type_description = default_or_of_type(definition, "description", str, None)
 
+    return type_name, aliases, parent_type_name, type_description
+
+# having parsed the header successfully and constructed a parent tree, use
+# this to construct all Types from the root down
+def parse_type_body(definition, name, aliases, parent_name, description):
+    print("Parsing type body:", name)
+    # validate the parent type exists
+    parent_type = get_or_error(TYPES, parent_name, 
+                               exception=BadTypeDefinition(f"Parent type {parent_name} could not be found for type {name}"))
+    
     # get the validity field and parse into constraint functions
     type_valid = default_or_of_type(definition, "valid", dict, {})
     is_valid, yield_as = construct_validity_constraints(type_valid, parent_type)
 
     # create the type
-    defined_type = Type(type_name, parent_type, is_valid, yield_as=yield_as, 
-                        description=type_description, aliases=aliases)
+    defined_type = Type(name, parent_type, is_valid, yield_as=yield_as, 
+                        description=description, aliases=aliases)
 
-    print("Created type:", type_name)
+    print("Created type:", name)
 
     return defined_type
 
-def parse_type_file(type_file: dict):
-    type_definitions = get_as_type_or_error(type_file, "data_types", list)
+def parse_type_files(*type_files: dict):
+    # get the datatypes container for each
+    type_definitions = []
+    for type_file in type_files:
+        type_definitions.append(get_as_type_or_error(type_file, "data_types", list))
 
-    for defintion in type_definitions:
-        parse_type(defintion)
+    # if they all were valid arrays, combine them into an overall type spec
+    type_definition = []
+    for definition_group in type_definitions:
+        type_definition += definition_group
+    # header parsing will automatically handle name conflicts.
+
+    # parse all headers to construct heritage tree
+    # this prevents data_types from being order sensitive
+    # i.e. you can define the parent later in the file
+    stubs_by_parent = {} # map parent name to set of children
+    stubs_by_name = {} # map type name to stub
+
+    for definition in type_definitions:
+        # validate the header
+        name, aliases, parent_name, description = parse_type_header(definition)
+        # construct type stub as tuple 
+        stub = (definition, name, aliases, parent_name, description)
+        # file it under its parent
+        put_no_replace(stubs_by_parent, parent_name, [])
+        stubs_by_parent[parent_name].append(stub)
+        stubs_by_name[name] = stub
+
+
+    # everything descends from DATA
+    heritage_tree = Tree(DATA.get_name())
+    nodes = deque([heritage_tree.value])
+    # add all children to tree
+    while True:
+        # until all groups dealt with
+        if not stubs_by_parent:
+            break
+        # get the next group of children
+        node = nodes.popleft()
+        children = stubs_by_parent[node]
+        del stubs_by_parent[node]
+        # add them to the tree
+        for child in children:
+            heritage_tree.add_child_to(node, child[1])
+            # and queue their children to now be added (if not a leaf)
+            if child[1] in stubs_by_parent:
+                nodes.append(child[1])
+    print("Generated type hierarchy tree")
+    
+    # tree now constructed, generate parsing order
+    parse_order = heritage_tree.breadth_first()
+    # pop 'data' from parsing as it is fully built it
+    parse_order.pop(0)
+
+    for stub_name in parse_order:
+        parse_type_body(*(stubs_by_name[stub_name]))
+
+    print("Parsed type file")
 
 # returns all unique types
 def get_all_types():
