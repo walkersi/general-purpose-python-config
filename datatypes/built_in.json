@@ -22,7 +22,7 @@
             "description": "Must be a number (integer or float)"
         },
         {
-            "name": ["positive integer", "positive int"],
+            "name": ["positive integer", "positive int", "natural"],
             "parent": "integer",
             "valid": {
                 "range": "0 < n"
@@ -50,6 +50,13 @@
                 "python": "str"
             },
             "description": "Must be a string"
+        },
+        {
+            "name": ["alphanumeric string", "alphanumeric str", "alphanumeric"],
+            "parent": "string",
+            "valid": {
+                "regex": "^[A-Z|0-9|a-z]*$"
+            }
         }
     ]
 }
