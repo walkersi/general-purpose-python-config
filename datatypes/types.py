@@ -17,17 +17,18 @@ class Type:
     # to the application from a given config value (e.g. to resolve aliases to a default)
     # by default, pass up the value as-is
     def __init__(self, name: str, parent: Type, 
-                 valid, yield_as = lambda value: value, description = None, aliases: list = None):
+                 valid, yield_as = None, description = None, aliases: list = None):
         # system uses this name, users can use aliases if they want to
         self.name = name
         # store parent (which may be the default root, data)
         self.parent = parent
         # store as method-like
         self.is_valid = valid
+        self.yield_as = (lambda value: value) if yield_as == None else yield_as
         # use the name as the default description if not provided
         self.description = description if description else name
         # there may be no aliases
-        self.aliases = set(aliases) if aliases else {}
+        self.aliases = set(aliases) if aliases else set()
         self.aliases.add(name)
         # add the name-Type mapping and update the set of reserved name/aliases
         TYPES[self.name] = self
@@ -76,12 +77,15 @@ def construct_validity_constraints(validity: dict, parent_type):
 
     reject_unrecognised_keys(validity, CONSTRAINT_FIELDS)
 
-    if "python" in validity:
-        validity = create_pythonic_constraint(validity)
-
-
-    # combine with the parent's constraints
-    return lambda value: parent_valid(value) and validity(value)
+    # get the correct constraint handler function
+    handler = classify_constraint_handler(validity)
+    # process constraint according to handler
+    child_is_valid, yield_as = handler(validity)
+    # combine with parent's constraints
+    is_valid = lambda value: parent_valid(value) and child_is_valid(value)
+    
+    # return constraint pair
+    return is_valid, yield_as
         
 
 # parse an individual type definition entry and return a Type or throw an error
@@ -106,11 +110,15 @@ def parse_type(definition: dict):
     # get the description or leave blank
     type_description = default_or_of_type(definition, "description", str, None)
 
-    # get the validity field
+    # get the validity field and parse into constraint functions
     type_valid = default_or_of_type(definition, "valid", dict, {})
-    construct_validity_constraints
+    is_valid, yield_as = construct_validity_constraints(type_valid, parent_type)
 
+    # create the type
+    defined_type = Type(type_name, parent_type, is_valid, yield_as=yield_as, 
+                        type_description=type_description, aliases=aliases)
 
+    return defined_type
 
 def parse_type_file(type_file: dict):
     type_definitions = get_as_type_or_error(type_file, "data_types", list)
@@ -118,4 +126,7 @@ def parse_type_file(type_file: dict):
     for defintion in type_definitions:
         parse_type(defintion)
 
-    
+
+def print_all_types():
+    for type in TYPES:
+        print(f"Type: {type.name}")    
