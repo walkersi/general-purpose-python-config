@@ -222,7 +222,8 @@ def create_range_constraint(validity: dict):
                 # flip it, because the expression is flipped
                 range_field = RANGE_OPPOSITES[range_field]
 
-            range[range_field] = bound
+            # attempt to preserve precision for range checks
+            range[range_field] = float(bound) if "." in bound else int(bound)
 
         # generate fields from both sides of equation
         for match in [left, right]:
