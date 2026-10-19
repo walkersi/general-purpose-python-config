@@ -5,10 +5,13 @@ Provided types and parent types
 -integer
 -positive integer
 -negative integer
+-regex
+
+-byte with variable expression options
+
 -percentage
 -x < n <= x2 --> shorthand for "range" (greater_than, less_than)
 -precision (of floats)
--regex
 -string
 -alphanumeric
 -character
