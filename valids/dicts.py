@@ -91,10 +91,7 @@ def has_excess_keys(dictionary: dict, keys: set[str]):
     extra_keys = existing_keys - keys
     if extra_keys:
         return extra_keys
-    return False
-
-
-    
+    return False    
 
 # returns true iff the given possible dict is a dict, and has the keys given
 # if 'only' is True, returns false if the dict has any keys other than those specified
@@ -135,4 +132,26 @@ def is_dict_with_typed_keys(possibly_dict, desired_typed_keys: dict[str, type|se
         if not valid:
             return False
                     
-    return True  
+    return True
+
+# all key-values from dict other added to dict main provided that they do not overlap
+def merge(dict_main: dict, dict_other: dict):
+    for key in dict_other:
+        put_no_replace(dict_main, key, dict_other[key])
+    return dict_main
+
+# assuming dictionary's VALUES are all unique, 
+# returns the values as keys matched to the original keys
+def invert(dict: dict):
+    for key, value in dict.items():
+        del dict[key]
+        dict[value] = key
+    return dict
+
+# assuming dictionary's values are unique
+# and are not equal to any keys
+# returns the key-value inversion of the dict merged with the current dict
+def and_invert(dict: dict):
+    for key, value in dict.items():
+        dict[value] = key
+    return dict
