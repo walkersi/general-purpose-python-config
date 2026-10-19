@@ -148,7 +148,7 @@ def create_regex_constraint(validity: dict):
         raise BadTypeDefinition(f"Regex {regex} is not a valid regex: {exc.msg}")
     # create the constraint function - must match regex
     # value is assumed to have to be a string too
-    return lambda value: is_type_or_equivalent(value, str) and re.match(regex, value), None
+    return lambda value: is_type_or_equivalent(value, str) and re.search(regex, value) != None, None
 
 def create_enum_constraint(validity: dict):
     # get the possible values and remove repeats
@@ -189,8 +189,8 @@ def create_range_constraint(validity: dict):
         # if range is a string, it should be in form like 0 <= n < 2
         # so apply a regex to validate
         bounds = str(range).strip()
-        left_side = "(?<id>[a-z|A-Z]+[\\d|_|a-z|A-Z]*)[ \\t]*(?<sign>[<|>]=?)[ \\t]*(?<bound>(?:\\d+(?:\\.\\d*)?|\\.\\d+))$"
-        right_side = "^(?<bound>(?:\\d+(?:\\.\\d*)?|\\.\\d+))[ \\t]*(?<sign>[<|>]=?)[ \\t]*(?<id>[a-z|A-Z]+[\\d|_|a-z|A-Z]*)"
+        left_side = "(?P<id>[a-z|A-Z]+[\\d|_|a-z|A-Z]*)[ \\t]*(?P<sign>[<|>]=?)[ \\t]*(?P<bound>(?:\\d+(?:\\.\\d*)?|\\.\\d+))$"
+        right_side = "^(?P<bound>(?:\\d+(?:\\.\\d*)?|\\.\\d+))[ \\t]*(?P<sign>[<|>]=?)[ \\t]*(?P<id>[a-z|A-Z]+[\\d|_|a-z|A-Z]*)"
         # left matches 1 < n, right matches n < 2
         left = re.search(left_side, bounds)
         right = re.search(right_side, bounds)
@@ -260,13 +260,14 @@ SEQUENTIAL_HANDLER_PAIRINGS = [
 
 # matches the validity description to a specific constraint handler based on fields present
 def classify_constraint_handler(validity: dict):
+    print("Matching constraint handler for validity dictionary:", validity)
     # if validity is empty dict, there are no constraints for this type
     # (i.e. it is just an alias of a parent)
     if len(validity) == 0:
         return lambda _: True
     # check all existing handlers, in priority order
     for field, handler in SEQUENTIAL_HANDLER_PAIRINGS:
-        if field in validity:
+        if field.name in validity:
             return handler
     # otherwise, this is not formatted correctly
     raise BadTypeDefinition("Constraints could not be constructed due to lack of primary constraint specified.")
