@@ -1,0 +1,77 @@
+{
+    "data_types": [
+        {
+            "name": ["integer", "int"],
+            "valid": {
+                "python": "int"
+            },
+            "description": "Must be an integer"
+        },
+        {
+            "name": ["character", "char"],
+            "valid": {
+                "regex": "^.$"
+            },
+            "description": "Must be a single character"
+        },
+        {
+            "name": ["number", "num"],
+            "valid": {
+                "python": "float"
+            },
+            "description": "Must be a number (integer or float)"
+        },
+        {
+            "name": ["positive integer", "positive int"],
+            "parent": "integer",
+            "valid": {
+                "range": "0 < n"
+            },
+            "description": "Must be a positive integer"
+        },
+        {
+            "name": ["positive number", "positive num"],
+            "parent": "number",
+            "valid": {
+                "range": "0 < n"
+            },
+            "description": "Must be a positive number"
+        },
+        {
+            "name": ["boolean", "bool"],
+            "valid": {
+                "enum": [true, false]
+            },
+            "description": "Must be a Boolean value (true/false)"
+        },
+        {
+            "name": ["string", "str", "chars"],
+            "valid": {
+                "python": "str"
+            },
+            "description": "Must be a string"
+        },
+        {
+            "name": "duration",
+            "description": "Must be a positive numerical duration",
+            "valid": {
+                "units": ["s", "ms", "hr", "day", "min"],
+                "target_unit": "s",
+                "aliases": {
+                    "s": ["sec", "secs", "seconds", "second"],
+                    "ms": ["msec", "msecs", "milliseconds", "millisecond"],
+                    "min": ["m", "minute", "minutes", "mins"],
+                    "day": ["days", "d"],
+                    "hr": ["hour", "h", "hrs", "hours"]
+                },
+                "conversion": {
+                    "s": "1000ms",
+                    "min": "60s",
+                    "hr": "60min",
+                    "day": "24hr"
+                },
+                "range": "0 <= n"
+            }
+        }
+    ]
+}
