@@ -192,6 +192,8 @@ def read_aliases(container: dict, names: set[str]):
             # error if duplicate alias
             if not put_no_replace(inverted_aliases, equivalent, name):
                 raise BadTypeDefinition(f"Duplicate alias {equivalent} for {name} is not allowed")
+    # make sure real names map to themselves for lookup
+    for name in names:
         # also map name to name for convenience
         inverted_aliases[name] = name
 
@@ -241,6 +243,8 @@ def create_range_constraint(validity: dict):
         left = re.search(left_side, bounds)
         right = re.search(right_side, bounds)
 
+        # TODO support [0,1) notation
+
         if not (left or right):
             raise BadTypeDefinition(f"Range '{range}' is invalid - must be in form e.g. x1 <= n <= x2")
 
@@ -287,9 +291,11 @@ def create_range_constraint(validity: dict):
     
     predicates = []
     # generate the range condition for each
-    for constraint in range_fields:
+    for constraint in range_fields: # loop through "greater_than", "less_than" etc 
         bound = range[constraint]
-        predicate = lambda v: RANGE_FUNCTIONS[constraint](v, bound)
+        # store args via defaults so that they are not overwritten each iter
+        predicate = lambda v, constraint=constraint, bound=bound: (
+            RANGE_FUNCTIONS[constraint](v, bound))
         predicates.append(predicate)
 
     # form final function, which is the intersection of all boundaries
