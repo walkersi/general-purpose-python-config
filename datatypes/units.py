@@ -4,7 +4,7 @@ import re
 # given an expression in form numerical value - unit, e.g. "13.4ms",
 # separate them and return
 def get_unit_from_expression(expression):
-    pattern = "(?P<value>(?:\\d+(?:\\.\\d*)?|\\.\\d+))?[ ]*(?P<unit>[^0-9\\.\\-\\+].*)"
+    pattern = "^(?P<value>[\\+\\-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+))?[ ]*(?P<unit>[^0-9\\.\\-\\+].*)$"
     match = re.search(pattern, expression)
     if not match:
         return None, None

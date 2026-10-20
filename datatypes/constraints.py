@@ -89,7 +89,7 @@ CASE_SENSITIVE = Constraint("case_sensitive", bool)
 PYTHON.set_compatible_cocostraints()
 REGEX.set_compatible_cocostraints()
 UNITS.set_compatible_cocostraints(TARGET_UNIT, CONVERSION, ALIASES, RANGE)
-RANGE.set_compatible_cocostraints(CASE_SENSITIVE)
+RANGE.set_compatible_cocostraints(UNITS, TARGET_UNIT, CONVERSION, ALIASES)
 ENUM.set_compatible_cocostraints(CASE_SENSITIVE, ALIASES)
 
 # define possible subfields for constraints
@@ -220,16 +220,23 @@ def create_enum_constraint(validity: dict):
     yield_as = lambda value: inverted_aliases[value]
 
     return is_valid, yield_as
-    
+
 def create_range_constraint(validity: dict):
+    # validate this field and co-constraints
     range = RANGE.validate(validity)
+    # additionally, if any of the unit conversion subfields are 
+    # present without units itself, reject
+    if UNITS.name not in validity:
+        if not (incompatible := {TARGET_UNIT.name, CONVERSION.name, ALIASES.name} 
+                - set(validity.keys())):
+            raise BadTypeDefinition(f"Constraints {incompatible} are incompatible with 'range' without a {UNITS.name} constraint in {validity}.")
     
     if is_type_or_equivalent(range, str):
         # if range is a string, it should be in form like 0 <= n < 2
         # so apply a regex to validate
         bounds = str(range).strip()
-        left_side = "(?P<id>[a-zA-Z]+[\\d_a-zA-Z]*)[ \\t]*(?P<sign>[<>]=?)[ \\t]*(?P<bound>(?:\\d+(?:\\.\\d*)?|\\.\\d+))$"
-        right_side = "^(?P<bound>(?:\\d+(?:\\.\\d*)?|\\.\\d+))[ \\t]*(?P<sign>[<>]=?)[ \\t]*(?P<id>[a-zA-Z]+[\\d_a-zA-Z]*)"
+        left_side = "(?P<id>[a-zA-Z]+[\\d_a-zA-Z]*)[ \\t]*(?P<sign>[<>]=?)[ \\t]*(?P<bound>[\\-\\+]?(?:\\d+(?:\\.\\d*)?|\\.\\d+))$"
+        right_side = "^(?P<bound>[\\-\\+]?(?:\\d+(?:\\.\\d*)?|\\.\\d+))[ \\t]*(?P<sign>[<>]=?)[ \\t]*(?P<id>[a-zA-Z]+[\\d_a-zA-Z]*)"
         # left matches 1 < n, right matches n < 2
         left = re.search(left_side, bounds)
         right = re.search(right_side, bounds)
@@ -352,7 +359,6 @@ def create_units_constraint(validity: dict):
         if conversion_units - units:
             raise BadTypeDefinition(f"Invalid unit in conversions: {conversion} = {equivalent}")
 
-    
     # make a graph from conversion dict
     graph = UnitConversionGraph(units, conversions)
     # conversion dict is incomplete if there are any units 
@@ -364,12 +370,23 @@ def create_units_constraint(validity: dict):
     # get aliases if they are included
     allowed_names, inverted_aliases = read_aliases(validity, units)
 
-    # TODO range compatibility
+    # check if a numerical range is specified
+    if RANGE.name in validity:
+        # validate it and generate a checker function
+        range_valid, _ = create_range_constraint(validity)
+
+    convert_to_target = lambda value: unit_expr_to_target_number(value, graph, inverted_aliases, target_unit)
 
     # valid if combines a number with a unit, or is just a number
-    is_valid = lambda value: is_type_or_equivalent(value, float) or unit_expr_valid(value, allowed_names)
+    is_valid = lambda value: (
+        # it's already a <target unit> and is in required range
+        (is_type_or_equivalent(value, float) and range_valid(value)) or
+        # we can convert it to target unit and it will be in range
+        (unit_expr_valid(value, allowed_names) 
+         and range_valid(convert_to_target(value))) 
+    )
     # always pass up converted to the target units
-    yield_as = lambda value: unit_expr_to_target_number(value, graph, inverted_aliases, target_unit)
+    yield_as = convert_to_target
 
     return is_valid, yield_as
 
