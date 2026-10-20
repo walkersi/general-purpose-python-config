@@ -7,6 +7,9 @@ Provided types and parent types
 -negative integer
 -regex
 
+-at least one [x]
+  polymorphic
+
 -byte with variable expression options
 
 -percentage
@@ -21,6 +24,10 @@ Provided types and parent types
   - integer unit
 -boolean
 
--list [type]
--set [type]
+-list
+-set
 -object
+-list of [x]
+-list of [y]
+  support for optional plurals
+  
