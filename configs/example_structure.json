@@ -92,8 +92,8 @@
                     "...":"..."
                 }
             }
-            
-
-        }
+        },
+        "__comment": "or very concisely: required positive number",
+        "*field8": "positive_number"
     }
 }
