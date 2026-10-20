@@ -20,13 +20,13 @@ class Node:
     
     # returns the set of nodes reachable from this one
     # depth search the graph, basically
-    def reaches(self):
-        reachable = {self}
-        for edge in self.edges:
-            node = edge.to_node
-            # if not already traversed, go down that path
-            if node not in reachable:
-                reachable |= node.reaches()
+    def reaches(self, reachable=set()):
+        if self not in reachable:
+            reachable.add(self)
+            for edge in self.edges:
+                node = edge.to_node
+                # if not already traversed, go down that path                
+                reachable |= node.reaches(reachable=reachable)
 
         return reachable
 
@@ -48,17 +48,11 @@ class Graph:
         for node in self.nodes:
             if node.value == value:
                 return node
+        raise KeyError(f"Node of value {value} does not exist")
 
-    def fully_connected(self):
-        if len(self.nodes) == 0:
-            return True
-        return self.all_reachable_from(self.nodes.__iter__().__next__())
-
-    # returns true if all nodes can be reached from the given node
-    def all_reachable_from(self, node: Node):
-        if self.nodes - node.reaches():
-            return False
-        return True
+    # returns set of nodes that cannot be reached from the given node
+    def get_unreachable_nodes(self, node: Node):
+        return self.nodes - node.reaches()
 
     # assumes graph to be fully connected (see fully_connected)
     # gets the shortest path by weights from node1 to node2 and returns the weights
@@ -77,31 +71,37 @@ class Graph:
         distances[source] = 0
 
         # while there is still unvisited nodes
-        while self.nodes - visited:
+        while unvisited := (self.nodes - visited):
             # find smallest distance
-            smallest = distances.keys().__next__()
-            for node, distance in distances.items():
-                if distance < distances[smallest]:
+            # smallest is the node with smallest distance value
+            smallest = None
+            for node in unvisited:
+                if not smallest or distances[node] < distances[smallest]:
                     smallest = node
             # look at neighbours
             for edge in smallest.edges:
                 if edge.to_node not in visited:
                     # for unvisited neighbours, try to update their distance
-                    distance_from_here = edge.weight + distances[node]
+                    distance_from_here = edge.weight + distances[edge.from_node]
                     if distances[edge.to_node] > distance_from_here:
                         # closer, so update distance and route
                         distances[edge.to_node] = distance_from_here
                         previous[edge.to_node] = edge.from_node
             # mark as visited
             visited.add(smallest)
+            # exit once destination visited
+            if smallest == dest:
+                break
 
         # trace back from dest to source
         node_path = []
         node = dest
         while node != source:
-            next = previous[node]
-            node_path.insert(0, next)
-            node = next
+            node_path.append(node)
+            node = previous[node]
+
+        node_path.append(source)
+        node_path.reverse()
 
         edge_path = []
         # return edges between said nodes as the path
