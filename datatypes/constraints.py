@@ -1,6 +1,8 @@
 from exceptions.structure_exceptions import *
+from exceptions.config_exceptions import *
 from valids.dicts import *
 from valids.casts import is_type_or_equivalent
+from datatypes.units import get_unit_from_expression, UnitConversionGraph
 import re
 # define rules for interpretting validity dictionaries into constraint checking functions
 # and rejecting mis-formatted ones
@@ -77,7 +79,7 @@ class Constraint:
 PYTHON = Constraint("python", str)
 REGEX = Constraint("regex", str)
 ENUM = Constraint("enum", list)
-UNITS = Constraint("units", list, str)
+UNITS = Constraint("units", set, str)
 RANGE = Constraint("range", str, dict)
 TARGET_UNIT = Constraint("target_unit", str)
 ALIASES = Constraint("aliases", dict)
@@ -86,8 +88,7 @@ CASE_SENSITIVE = Constraint("case_sensitive", bool)
 
 PYTHON.set_compatible_cocostraints()
 REGEX.set_compatible_cocostraints()
-UNITS.set_required_coconstraints(TARGET_UNIT, CONVERSION)
-UNITS.set_compatible_cocostraints(ALIASES, RANGE)
+UNITS.set_compatible_cocostraints(TARGET_UNIT, CONVERSION, ALIASES, RANGE)
 RANGE.set_compatible_cocostraints(CASE_SENSITIVE)
 ENUM.set_compatible_cocostraints(CASE_SENSITIVE, ALIASES)
 
@@ -151,17 +152,40 @@ def create_regex_constraint(validity: dict):
     # value is assumed to have to be a string too
     return lambda value: is_type_or_equivalent(value, str) and re.search(regex, value) != None, None
 
-def create_enum_constraint(validity: dict):
-    # get the possible values and remove repeats
-    enum = ENUM.validate(validity)
-    enum = set(enum)
-    # check for aliases
-    aliases = get_or_default(validity, ALIASES.name, {})
+# given a dict that may have an aliases dict field,
+# and the set of names that are being aliased
+# read it if it exists and return aliasing data structures
+def read_aliases(container: dict, names: set[str]):
+    # set of names that are valid (i.e. names and aliases)
+    # these are also *reserved* names
+    acceptable_names = names.copy()
     # map from aliases to the canonical name
     inverted_aliases = {}
-    for name, equivalents in aliases:
+
+    # check for aliases
+    aliases = get_or_default(container, ALIASES.name, {})
+
+    for name, equivalents in aliases.items():
+        # validate the entry
+        if not is_type_or_equivalent(name, str):
+            raise BadTypeDefinition(f"Name {name} in aliases in {container} must be a string.")
+        if not is_type_or_equivalent(equivalents, set):
+            if is_type_or_equivalent(equivalents, str):
+                # allow single strings to be given as aliases rather than a whole set
+                equivalents = set(equivalents)
+            else:
+                raise BadTypeDefinition(f"Aliases {equivalents} in {container} must be a set of strings without duplicates or a single string.")
+        # confirm all aliases are strings
+        for equivalent in equivalents:
+            if not is_type_or_equivalent(equivalent, str):
+                raise BadTypeDefinition(f"Alias '{equivalent}' in {container} must be a string.")
+
+        # sanity casts
+        name = str(name)
+        equivalents = {str(e) for e in equivalents}
+
         # these values are also acceptable
-        enum |= set(equivalents)
+        acceptable_names |= set(equivalents)
         # but will be normalised to the name when passing up to application
         # add all to the alias to name map
         for equivalent in equivalents:
@@ -170,6 +194,20 @@ def create_enum_constraint(validity: dict):
                 raise BadTypeDefinition(f"Duplicate alias {equivalent} for {name} is not allowed")
         # also map name to name for convenience
         inverted_aliases[name] = name
+
+    return acceptable_names, inverted_aliases
+
+def create_enum_constraint(validity: dict):
+    # get the possible values and reject repeats
+    enum = ENUM.validate(validity)
+    if len(set(enum)) != len(enum):
+        raise BadTypeDefinition(f"Enum includes duplicate values {enum}")
+    else:
+        enum = set(enum)
+
+    # read and enable aliases
+    enum, inverted_aliases = read_aliases(validity, enum)
+    
     # check if case sensitivity matters (default, yes)
     case_sensitive = get_or_default(validity, CASE_SENSITIVE.name, True)
     # construct validity checker based on whether or not case matters
@@ -190,8 +228,8 @@ def create_range_constraint(validity: dict):
         # if range is a string, it should be in form like 0 <= n < 2
         # so apply a regex to validate
         bounds = str(range).strip()
-        left_side = "(?P<id>[a-z|A-Z]+[\\d|_|a-z|A-Z]*)[ \\t]*(?P<sign>[<|>]=?)[ \\t]*(?P<bound>(?:\\d+(?:\\.\\d*)?|\\.\\d+))$"
-        right_side = "^(?P<bound>(?:\\d+(?:\\.\\d*)?|\\.\\d+))[ \\t]*(?P<sign>[<|>]=?)[ \\t]*(?P<id>[a-z|A-Z]+[\\d|_|a-z|A-Z]*)"
+        left_side = "(?P<id>[a-zA-Z]+[\\d_a-zA-Z]*)[ \\t]*(?P<sign>[<>]=?)[ \\t]*(?P<bound>(?:\\d+(?:\\.\\d*)?|\\.\\d+))$"
+        right_side = "^(?P<bound>(?:\\d+(?:\\.\\d*)?|\\.\\d+))[ \\t]*(?P<sign>[<>]=?)[ \\t]*(?P<id>[a-zA-Z]+[\\d_a-zA-Z]*)"
         # left matches 1 < n, right matches n < 2
         left = re.search(left_side, bounds)
         right = re.search(right_side, bounds)
@@ -252,11 +290,96 @@ def create_range_constraint(validity: dict):
 
     return is_valid, None
 
+# returns true if the expression is a valid unit expression for the given unit alias set
+def unit_expr_valid(expression: str, allowed_names: set[str]):
+    value, unit = get_unit_from_expression(expression)
+    print(value, unit)
+    return unit in allowed_names and value != None
+
+# assuming the expression is valid, converts its value to the target unit and returns as value
+def unit_expr_to_target_number(expression: str|float, graph: UnitConversionGraph, alias_map: dict[str,str], target_unit: str):
+    # case: no conversion, leave as is
+    if is_type_or_equivalent(expression, float):
+        return expression
+    # do unit conversion using graph
+    n, unit = get_unit_from_expression(expression)
+    # alias the unit so the graph gets the canonical symbol
+    return graph.convert_to(float(n), alias_map[unit], target_unit)
+
+def create_units_constraint(validity: dict):
+    units = UNITS.validate(validity)
+
+    if is_type_or_equivalent(units, str):
+        # there is only one unit - we always coerce to this unit, it's basically
+        # just for visual clarity in the config (it may have aliases)
+        units = {units}
+
+    # strip whitespace from units sides
+    units = set([u.strip() for u in units])
+
+    # check all units are valid characters only
+    # use regex
+    unit_pattern = f"^[^0-9\\.].*$"
+    for unit in units:
+        # units can include digits (e.g. ms-1) but must not start with them
+        if not re.search(unit_pattern, unit):
+            raise BadTypeDefinition(
+                f"Invalid unit {unit} in {validity} - must be alphanumeric (some symbols allowed), leading with a non-digit")
+
+    # look for a target unit for yield
+    if TARGET_UNIT.name in validity:
+        target_unit = TARGET_UNIT.get_from_definition(validity)
+    elif len(units) > 1:
+        # no target unit specified when one is needed
+        raise BadTypeDefinition(f"target_unit was not specified for type with multiple possible units {validity}")
+    else:
+        # with just one unit, target unit is the unit itself
+        target_unit = list(units)[0]
+
+    # if there is more than one unit, conversion must be specified
+    if CONVERSION.name in validity:
+        conversions = CONVERSION.get_from_definition(validity)
+    else:
+        # arbitary conversion dict instead
+        conversions = {f"1{target_unit}": f"1{target_unit}"}
+
+    # conversion dict is invalid if it describes conversions for nonexistent units
+    for conversion in conversions:
+        equivalent = conversions[conversion]
+        conversion_units = {get_unit_from_expression(conversion)[1], 
+                            get_unit_from_expression(equivalent)[1]}
+        # check validity by set subtraction
+        if conversion_units - units:
+            raise BadTypeDefinition(f"Invalid unit in conversions: {conversion} = {equivalent}")
+
+    
+    # make a graph from conversion dict
+    graph = UnitConversionGraph(units, conversions)
+    # conversion dict is incomplete if there are any units 
+    # which cannot be reached by target unit
+    if unreachable := graph.get_unreachable_nodes(graph.get_node_by_value(target_unit)):
+        # i.e. not fully connected graph
+        raise BadTypeDefinition(f"Missing unit conversions for {unreachable}")
+
+    # get aliases if they are included
+    allowed_names, inverted_aliases = read_aliases(validity, units)
+
+    # TODO range compatibility
+
+    # valid if combines a number with a unit, or is just a number
+    is_valid = lambda value: is_type_or_equivalent(value, float) or unit_expr_valid(value, allowed_names)
+    # always pass up converted to the target units
+    yield_as = lambda value: unit_expr_to_target_number(value, graph, inverted_aliases, target_unit)
+
+    return is_valid, yield_as
+
+
 # pairs constraints to their handler function, to be checked in the specified order
 SEQUENTIAL_HANDLER_PAIRINGS = [
     (PYTHON, create_pythonic_constraint),
     (REGEX, create_regex_constraint),
     (ENUM, create_enum_constraint),
+    (UNITS, create_units_constraint),
     (RANGE, create_range_constraint)
 ]
 
