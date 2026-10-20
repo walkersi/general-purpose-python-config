@@ -56,7 +56,7 @@ DATA = Type("data", None, lambda _: True)
 
 # returns the set of names from given name/aliases that are already in use
 def check_reserved_names(type_name: str, aliases: list):
-    aliases = set(aliases) if aliases else {}
+    aliases = set(aliases) if aliases else set()
     aliases.add(type_name)    
     return aliases & RESERVED_NAMES
 
@@ -141,7 +141,7 @@ def parse_type_files(*type_files: dict):
     # get the datatypes container for each
     type_definitions = []
     for type_file in type_files:
-        type_definitions.append(get_as_type_or_error(type_file, "data_types", list))
+        type_definitions += get_as_type_or_error(type_file, "data_types", list)
 
     # if they all were valid arrays, combine them into an overall type spec
     type_definition = []
