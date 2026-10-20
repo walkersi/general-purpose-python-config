@@ -14,10 +14,11 @@ char = get_type("character")
 positive_number = get_type("positive number")
 boolean = get_type("boolean")
 duration = get_type("duration")
+percent = get_type("percent")
 
 while True:
     value = input(":: ")
-    valid = duration.is_valid(value)
+    valid = percent.is_valid(value)
     print(valid)
     if valid:
-        print("Yield as: ", duration.yield_as(value))
+        print("Yield as: ", percent.yield_as(value))

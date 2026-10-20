@@ -37,6 +37,21 @@
                 },
                 "range": "n >= 0"
             }
+        },
+        {
+            "name": ["percent", "percentage", "%"],
+            "description": "Must be a percentage value between 0% and 100%",
+            "valid": {
+                "units": ["%", "_x100%"],
+                "target_unit": "_x100%",
+                "aliases": {
+                    "%": "percent"
+                },
+                "conversion": {
+                    "100%": "1_%"
+                },
+                "range": "0 <= n <= 1"
+            }
         }
     ]
 }
