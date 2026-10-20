@@ -1,8 +1,9 @@
 from datatypes.types import parse_type_files, print_all_types, get_type
 from jsonio.io import load
 
-type_dict = load("datatypes/built_in.json")
-parse_type_files(type_dict)
+type_dict = load("datatypes/built_in_primitive.json")
+type_dict2 = load("datatypes/built_in_complex.json")
+parse_type_files(type_dict, type_dict2)
 print_all_types()
 
 # test type values
