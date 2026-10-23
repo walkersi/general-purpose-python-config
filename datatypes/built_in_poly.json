@@ -1,0 +1,52 @@
+{
+    "data_types": [
+        {
+            "name": ["object", "struct", "structure", "dict", "dictionary", "key value", "map", "lookup"],
+            "description": "Must be an object / dictionary",
+            "valid": {
+                "python": "dict"
+            }
+        },
+        {
+            "name": ["keyed object", "id object", "object with id", "key object"],
+            "description": "Must be an object with an *id* field",
+            "parent": "object",
+            "parameters": {
+                "key_type": "data"
+            },
+            "valid": {
+                "structure": {
+                    "id": {
+                        "type": "@key_type",
+                        "required": true
+                    }
+                },
+                "extensible": true
+            }
+        },
+        {
+            "name": "test sub object",
+            "description": "Must be an object with an alphanumeric ID and a count int field and optional name string field",
+            "parent": {
+                "type": "keyed object",
+                "parameters": {
+                    "key_type": "strict alphanumeric"
+                }
+            },
+            "valid": {
+                "structure": {
+                    "count": {
+                        "type": "integer",
+                        "required": true
+                    },
+                    "name": {
+                        "type": "string",
+                        "required": false
+                    }
+                },
+                "extensible": false
+            }
+
+        }
+    ]
+}
