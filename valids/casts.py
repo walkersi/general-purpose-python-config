@@ -8,7 +8,7 @@
 SAFE_TO_CAST = {
     int: lambda _: {float},
     set: lambda _: {list},
-    # list can cast to set 'safely' if there are no duplicates
+    # list can cast to set 'safely' iff there are no duplicates
     list: lambda v: {set} if len(set(v)) == len(v) else set()
 }
 
