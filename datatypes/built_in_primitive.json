@@ -25,17 +25,33 @@
             "name": ["positive integer", "positive int", "natural"],
             "parent": "integer",
             "valid": {
-                "range": "0 < n"
+                "range": "0 <= n"
             },
-            "description": "Must be a positive integer"
+            "description": "Must be a positive integer or 0"
+        },
+        {
+            "name": ["strict positive integer", "strict positive int"],
+            "parent": "integer",
+            "valid": {
+                "range": "n > 0"
+            },
+            "description": "Must be a positive integer / greater than 0"
         },
         {
             "name": ["positive number", "positive num"],
             "parent": "number",
             "valid": {
-                "range": "0 < n"
+                "range": "0 <= n"
             },
-            "description": "Must be a positive number"
+            "description": "Must be a positive number or 0"
+        },
+        {
+            "name": ["strict positive number", "strict positive num", "strict positive"],
+            "parent": "number",
+            "valid": {
+                "range": "n > 0"
+            },
+            "description": "Must be a positive number / greater than 0"
         },
         {
             "name": ["boolean", "bool"],
