@@ -1,4 +1,10 @@
+from valids.dicts import *
+from valids.casts import is_type_or_equivalent
+from exceptions.structure_exceptions import *
+from datatypes.validity.alias_handler import read_aliases
 from abstracts.graph import Node, Edge, Graph
+from datatypes.validity.constraints import UNITS, TARGET_UNIT, CONVERSION, RANGE
+from datatypes.validity.constraint_range import create_range_constraint
 import re
 
 # given an expression in form numerical value - unit, e.g. "13.4ms",
@@ -100,3 +106,97 @@ class UnitConversionGraph(Graph):
             n *= self.get_factor(edge)
 
         return n
+
+
+# returns true if the expression is a valid unit expression for the given unit alias set
+def unit_expr_valid(expression: str, allowed_names: set[str]):
+    value, unit = get_unit_from_expression(expression)
+    print(value, unit)
+    return unit in allowed_names and value != None
+
+# assuming the expression is valid, converts its value to the target unit and returns as value
+def unit_expr_to_target_number(expression: str|float, graph: UnitConversionGraph, alias_map: dict[str,str], target_unit: str):
+    # case: no conversion, leave as is
+    if is_type_or_equivalent(expression, float):
+        return expression
+    # do unit conversion using graph
+    n, unit = get_unit_from_expression(expression)
+    # alias the unit so the graph gets the canonical symbol
+    return graph.convert_to(float(n), alias_map[unit], target_unit)
+
+def create_units_constraint(validity: dict):
+    units = UNITS.validate(validity)
+
+    if is_type_or_equivalent(units, str):
+        # there is only one unit - we always coerce to this unit, it's basically
+        # just for visual clarity in the config (it may have aliases)
+        units = {units}
+
+    # strip whitespace from units sides
+    units = set([u.strip() for u in units])
+
+    # check all units are valid characters only
+    # use regex
+    unit_pattern = f"^[^0-9\\.].*$"
+    for unit in units:
+        # units can include digits (e.g. ms-1) but must not start with them
+        if not re.search(unit_pattern, unit):
+            raise BadTypeDefinition(
+                f"Invalid unit {unit} in {validity} - must be alphanumeric (some symbols allowed), leading with a non-digit")
+
+    # look for a target unit for yield
+    if TARGET_UNIT.name in validity:
+        target_unit = TARGET_UNIT.get_from_definition(validity)
+    elif len(units) > 1:
+        # no target unit specified when one is needed
+        raise BadTypeDefinition(f"target_unit was not specified for type with multiple possible units {validity}")
+    else:
+        # with just one unit, target unit is the unit itself
+        target_unit = list(units)[0]
+
+    # if there is more than one unit, conversion must be specified
+    if CONVERSION.name in validity:
+        conversions = CONVERSION.get_from_definition(validity)
+    else:
+        # arbitary conversion dict instead
+        conversions = {f"1{target_unit}": f"1{target_unit}"}
+
+    # conversion dict is invalid if it describes conversions for nonexistent units
+    for conversion in conversions:
+        equivalent = conversions[conversion]
+        conversion_units = {get_unit_from_expression(conversion)[1], 
+                            get_unit_from_expression(equivalent)[1]}
+        # check validity by set subtraction
+        if conversion_units - units:
+            raise BadTypeDefinition(f"Invalid unit in conversions: {conversion} = {equivalent}")
+
+    # make a graph from conversion dict
+    graph = UnitConversionGraph(units, conversions)
+    # conversion dict is incomplete if there are any units 
+    # which cannot be reached by target unit
+    if unreachable := graph.get_unreachable_nodes(graph.get_node_by_value(target_unit)):
+        # i.e. not fully connected graph
+        raise BadTypeDefinition(f"Missing unit conversions for {unreachable}")
+
+    # get aliases if they are included
+    allowed_names, inverted_aliases = read_aliases(validity, units)
+
+    # check if a numerical range is specified
+    if RANGE.name in validity:
+        # validate it and generate a checker function
+        range_valid, _ = create_range_constraint(validity)
+
+    convert_to_target = lambda value: unit_expr_to_target_number(value, graph, inverted_aliases, target_unit)
+
+    # valid if combines a number with a unit, or is just a number
+    is_valid = lambda value: (
+        # it's already a <target unit> and is in required range
+        (is_type_or_equivalent(value, float) and range_valid(value)) or
+        # we can convert it to target unit and it will be in range
+        (unit_expr_valid(value, allowed_names) 
+         and range_valid(convert_to_target(value))) 
+    )
+    # always pass up converted to the target units
+    yield_as = convert_to_target
+
+    return is_valid, yield_as

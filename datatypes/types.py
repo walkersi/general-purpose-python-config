@@ -2,8 +2,9 @@
 from valids.dicts import *
 from valids.lists import *
 from abstracts.tree import Tree
-from datatypes.constraints import *
-from exceptions.structure_exceptions import BadTypeDefinition
+from datatypes.validity.constraint_matcher import classify_constraint_handler
+from datatypes.validity.constraints import CONSTRAINT_FIELDS
+from exceptions.structure_exceptions import BadTypeDefinition, UndefinedType
 from collections import deque
 
 TYPES = {} # mappings of type name to Type
