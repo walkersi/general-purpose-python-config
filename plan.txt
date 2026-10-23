@@ -1,33 +1,64 @@
-Provided types and parent types
+Metadata:
+-name [and type aliases]
+-description
+-parent
+
+
+Constraints:
+-regex
+-python
+-range (supporting greater_than / less_than, 
+        greater_than_or_equal_to / less_than_or_equal_to, 
+        or bounds notation)
+-units (with target_unit, conversion)
+-enum (with case_sensitive)
+-aliases (for enum and units)
+TODO
+[need aware parent tree]:
+-union [OR two types, and include a yield_like: [type in union] or [python]]
+-negate
+[]
+-collection
+
+  - collection types are encoded as json lists
+  - collection can take value: "typed", "flexible", "predefined"
+  - predefined incorporate types structure below
+  - collections which are always typed cannot be added to config as themselves
+  - must be described as list of xyz
+  - or as list: {types: [x, y, z], size: n} or {types: x, size: {min: n, max: n2}}
+
+-discrete unit
+-precision
+
+
+Provided types:
 -number
 -positive number
 -negative number
+-boolean
+-character
+-string
+-alphanumeric [includes spaces]
+-strict alphanumeric
 -integer
 -positive integer
 -negative integer
--regex
+-duration (unit)
+-percentage (unit)
 
--at least one [x]
-  polymorphic
-
--byte with variable expression options
-
--percentage
--x < n <= x2 --> shorthand for "range" (greater_than, less_than)
--precision (of floats)
--string
--alphanumeric
--character
--enum
--unit
--discrete unit
-  - integer unit
--boolean
-
--list
--set
--object
+TODO
 -list of [x]
--list of [y]
-  support for optional plurals
+-set of [x]
+-array of [x]
+-at least one [x]
+-byte [expressed as 0x__, or 0x13]
+
+-object definition -- this is what Config itself will be!
   
+
+-lists like:
+{
+
+}
+
+When importing data type files - allow include/exclude of types
