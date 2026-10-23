@@ -1,0 +1,16 @@
+{
+    "data_types": [
+        {
+            "name": ["url", "link", "hyperlink"]
+        },
+        {
+            "name": ["ipv4", "ipv4 address"]
+        },
+        {
+            "name": ["ipv6", "ipv6 address"]
+        },
+        {
+            "name": ["mac", "mac address"]
+        }
+    ]
+}
