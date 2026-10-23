@@ -16,7 +16,7 @@
         },
         {
             "name": "duration",
-            "description": "Must be a positive numerical duration",
+            "description": "Must be a positive numerical duration with a time unit",
             "valid": {
                 "units": ["s", "ms", "hr", "day", "min", "week"],
                 "target_unit": "s",
@@ -40,7 +40,7 @@
         },
         {
             "name": ["percent", "percentage", "%"],
-            "description": "Must be a percentage value between 0% and 100%",
+            "description": "Must be a percentage value between 0% and 100%, with the unit",
             "valid": {
                 "units": ["%", "_x100%"],
                 "target_unit": "_x100%",
