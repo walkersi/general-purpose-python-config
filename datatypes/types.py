@@ -102,7 +102,16 @@ def parse_type_header(definition: dict):
 
     # get the main type name and its aliases
     type_name, aliases = head_and_tail(definition["name"])
-    # check there are no conflicts
+    # reject non string aliases
+    if aliases:
+        for alias in aliases:
+            if not is_type_or_equivalent(alias, str):
+                raise BadTypeDefinition(f"Alias {alias} must be a string in type {definition}")
+        # always interpret type names as lower case
+        aliases = [a.lower() for a in aliases]
+    type_name = type_name.lower()
+
+    # check there are no name conflicts
     reserved = check_reserved_names(type_name, aliases)
     if reserved:
         raise BadTypeDefinition(f"Type name(s) must be unique - {reserved} are already in use")
