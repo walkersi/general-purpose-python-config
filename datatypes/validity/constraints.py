@@ -83,12 +83,18 @@ TARGET_UNIT = Constraint("target_unit", str)
 ALIASES = Constraint("aliases", dict)
 CONVERSION = Constraint("conversion", dict)
 CASE_SENSITIVE = Constraint("case_sensitive", bool)
+STRUCTURE = Constraint("structure", dict, list, set)
+EXTENSIBLE = Constraint("extensible", bool)
 
+# define relationships to other constraints
 PYTHON.set_compatible_cocostraints()
 REGEX.set_compatible_cocostraints()
 UNITS.set_compatible_cocostraints(TARGET_UNIT, CONVERSION, ALIASES, RANGE)
 RANGE.set_compatible_cocostraints(UNITS, TARGET_UNIT, CONVERSION, ALIASES)
 ENUM.set_compatible_cocostraints(CASE_SENSITIVE, ALIASES)
+STRUCTURE.set_compatible_cocostraints(EXTENSIBLE)
+EXTENSIBLE.set_required_coconstraints(STRUCTURE)
+
 
 def get_constraint_by_name(name: str):
     return get_or_error(CONSTRAINT_FIELDS, name, BadTypeDefinition(f"Validity constraint {name} does not exist"))

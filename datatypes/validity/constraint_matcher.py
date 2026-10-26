@@ -4,6 +4,7 @@ from datatypes.validity.constraint_python import create_pythonic_constraint
 from datatypes.validity.constraint_units import create_units_constraint
 from datatypes.validity.constraint_range import create_range_constraint
 from datatypes.validity.constraint_regex import create_regex_constraint 
+from datatypes.validity.constraint_structure import create_structure_constraint
 from datatypes.validity.constraints import *
 
 # pairs constraints to their handler function, to be checked in the specified order
@@ -11,6 +12,7 @@ SEQUENTIAL_HANDLER_PAIRINGS = [
     (PYTHON, create_pythonic_constraint),
     (REGEX, create_regex_constraint),
     (ENUM, create_enum_constraint),
+    (STRUCTURE, create_structure_constraint),
     (UNITS, create_units_constraint),
     (RANGE, create_range_constraint)
 ]
