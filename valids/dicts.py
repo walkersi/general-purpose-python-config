@@ -138,3 +138,15 @@ def and_invert(dict: dict):
     for key, value in set(dict.items()):
         dict[value] = key
     return dict
+
+# given two dicts and a function,
+# applies function to all values in dict1 and replaces values with result
+# function in form f(v, v2) where v2 is the value under corresponding key in dict2
+# assumes dict2 has all keys that are in dict1, does not check!
+def apply_function_dict(dict1: dict, dict2: dict, function):
+    for key in dict1:
+        val = dict1[key]
+        val2 = dict2[key]
+        dict1[key] = function(val, val2)
+
+    return dict1
