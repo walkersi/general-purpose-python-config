@@ -9,7 +9,9 @@ SAFE_TO_CAST = {
     int: lambda _: {float},
     set: lambda _: {list},
     # list can cast to set 'safely' iff there are no duplicates
-    list: lambda v: {set} if len(set(v)) == len(v) else set()
+    list: lambda v: {set} if len(set(v)) == len(v) else set(),
+    # float can cast to int if it is a whole number only
+    float: lambda v: {int} if int(v) == v else set()
 }
 
 # returns true if value is exactly the desired type, or if it can be "losslessly" converted 
