@@ -123,6 +123,13 @@ def merge(dict_main: dict, dict_other: dict):
         put_no_replace(dict_main, key, dict_other[key])
     return dict_main
 
+# puts all keys in other dict in main dict, replacing already existing values
+def merge_replace(dict_main: dict, dict_other: dict):
+    for key in dict_other:
+        dict_main[key] = dict_other[key]
+    return dict_main
+
+
 # assuming dictionary's VALUES are all unique, 
 # returns the values as keys matched to the original keys
 def invert(dict: dict):
@@ -139,14 +146,26 @@ def and_invert(dict: dict):
         dict[value] = key
     return dict
 
+# see below (just fails)
+def default_fallback(value):
+    raise KeyError(f"Value '{value}' derived from key not found in dict")
+
 # given two dicts and a function,
 # applies function to all values in dict1 and replaces values with result
 # function in form f(v, v2) where v2 is the value under corresponding key in dict2
 # assumes dict2 has all keys that are in dict1, does not check!
-def apply_function_dict(dict1: dict, dict2: dict, function):
+# however, if fallback function is specified, it will be used to process v instead
+# fallback(v) -> ___
+def apply_function_dict(dict1: dict, dict2: dict, function, fallback_function=None):
+    if not fallback_function:
+        fallback_function = default_fallback
+    
     for key in dict1:
         val = dict1[key]
-        val2 = dict2[key]
-        dict1[key] = function(val, val2)
+        if key in dict2:
+            val2 = dict2[key]
+            dict1[key] = function(val, val2)
+        else:
+            dict1[key] = fallback_function(val)
 
     return dict1
