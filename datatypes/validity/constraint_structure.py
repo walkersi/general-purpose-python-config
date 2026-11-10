@@ -4,10 +4,11 @@ from exceptions.config_exceptions import FieldMissingException, FieldValueInvali
 from datatypes.validity.constraints import STRUCTURE, EXTENSIBLE
 from valids.casts import is_type_or_equivalent
 from valids.dicts import *
+from datatypes.parameterised_types import PARAMETER_SYMBOL
 from datatypes.type_maps import get_type
 
 # sub fields in structure field clarification dicts
-STRUCTURE_TYPE_NAME = "name"
+STRUCTURE_TYPE_NAME = "type"
 STRUCTURE_REQUIRED = "required"
 STRUCTURE_DEFAULT = "default"
 
@@ -18,11 +19,11 @@ NO_DEFAULT_VALUE = object()
 # use require/default to permit omitted values
 def get_substructure_field(value_descriptor: dict, field:str, type: type, require=True, default=NO_DEFAULT_VALUE):
     # the type exception to throw if field value is wrong type
-    type_exception = BadTypeDefinition(f"Field {field} must be of type {type} in structure descriptor {value_descriptor}")
+    type_exception = BadTypeDefinition(f"Field '{field}' must be of type {type} in structure descriptor {value_descriptor}")
     # handle required/default
     if require:
         return get_as_type_or_error(value_descriptor, field, type,
-            field_exception=BadTypeDefinition(f"Field {field} is required in structure descriptor {value_descriptor}"),
+            field_exception=BadTypeDefinition(f"Field '{field}' is required in structure descriptor {value_descriptor}"),
             type_exception=type_exception)
     else:
         return get_as_type_error_default(value_descriptor, field, type, default=default,
@@ -31,7 +32,8 @@ def get_substructure_field(value_descriptor: dict, field:str, type: type, requir
 
 # TODO support for list & set structures
 
-def create_structure_constraint(validity: dict):
+# where specialised parameters maps string param name to Type
+def create_structure_constraint(validity: dict, specialised_parameters: dict):
     # extract the desired structure
     desired_structure = STRUCTURE.validate(validity)
     # get the keys in this object, as they are written (not necessarily final names)
@@ -68,7 +70,7 @@ def create_structure_constraint(validity: dict):
         elif is_type_or_equivalent(value_descriptor, dict):
             # otherwise, should be a dict clarifying structure
             value_type_name = get_substructure_field(value_descriptor, STRUCTURE_TYPE_NAME, str)
-            value_required = get_substructure_field(value_descriptor, STRUCTURE_REQUIRED, bool, required=False, default=True)
+            value_required = get_substructure_field(value_descriptor, STRUCTURE_REQUIRED, bool, require=False, default=True)
             # check for a default value present
             value_default = get_or_default(value_descriptor, STRUCTURE_DEFAULT, NO_DEFAULT_VALUE)
         else:
@@ -78,8 +80,22 @@ def create_structure_constraint(validity: dict):
         if value_required and value_default != NO_DEFAULT_VALUE:
             raise BadTypeDefinition(f"Key {key} in structure {validity} is required so must not provide a default value")
 
-        # check app-type actually exists
-        value_type = get_type(value_type_name)
+        # flag to track whether this field's type is a runtime lookup or not
+        # (since a child of this structure may specialise the type if its a param)
+        parameterised = None
+
+        if value_type_name[0] == PARAMETER_SYMBOL:
+            # this is a parameter lookup, NOT a literal type
+            # check it exists in the parameters
+            if value_type_name[1:] not in specialised_parameters:
+                raise BadTypeDefinition(f"Parameter {value_type_name[1:]} does not exist in {specialised_parameters} for {validity}")
+            # and that the type given in the parameters is real
+            value_type = specialised_parameters[value_type_name[1:]]
+            parameterised = value_type_name[1:]
+        else:
+            # check app-type actually exists
+            value_type = get_type(value_type_name)
+    
         # app-type check the default value if it was specified
         if value_default != NO_DEFAULT_VALUE:
             if not value_type.is_valid(value_default):
@@ -91,12 +107,17 @@ def create_structure_constraint(validity: dict):
         # create this key-value's constraint
         if value_required:
             # true only if field present and value valid
-            is_valid = (lambda struct, field=key, type=value_type: 
-                value_type.is_valid(get_or_error(struct, field, FieldMissingException(f"{struct} requires field {field}"))))
+            is_valid = (lambda struct, params, param_name=parameterised, field=key, type=value_type:
+                # presence required
+                field in struct and
+                # cut off parameter @, and get the runtime type
+                (params[param_name] if param_name else type)
+                    .is_valid(struct[field]))
         else:
             # true if field is present with value valid, or field not present
-            is_valid = (lambda struct, field=key, type=value_type:
-                        True if field not in struct else type.is_valid(struct[field])
+            is_valid = (lambda struct, params, param_name=parameterised, field=key, type=value_type:
+                        True if field not in struct else 
+                            (params[param_name] if param_name else type).is_valid(struct[field])
                         )
 
         # add the valid predicate to the list
@@ -107,22 +128,36 @@ def create_structure_constraint(validity: dict):
             default_fields[key] = value_default
 
     # this structure is valid only when all field constraints hold
-    is_valid = (lambda value, valids=validator: 
+    is_valid = (lambda value, params, valids=validator: 
                 is_type_or_equivalent(value, dict) and
-                all([p(value) for p in valids])
+                all([p(value, params) for p in valids])
                 )
     if not extensible:
         # inextensible structures have the extra constraint of NO OTHER KEYS
-        # other than those described
-        is_valid = (lambda value, keys=keys_as_written, valids=is_valid:
-                    valids(value) and not (set(value.keys()) - keys)
+        # other than those described # TODO what about parent keys
+        is_valid = (lambda value, params, keys=keys_as_written, valids=is_valid:
+                    valids(value, params) and not (set(value.keys()) - keys)
                     )
 
     # structure yields as itself with sub-types yielded accordingly
-    yield_as = (lambda value, default_fields=default_fields, field_types=field_types:
-                apply_function_dict((
-                    merge(value, default_fields) # add any missing defaults
-                ), field_types, lambda v1, v2: v2.yield_as(v1)) # get yield value of each field
+    yield_as = (lambda value, params, default_fields=default_fields, field_types=field_types:
+                apply_function_dict(
+                    merge(value, default_fields), # add any missing defaults
+                    merge_replace(field_types, params), # use child parameters as types
+                    lambda v1, v2: v2.yield_as(v1), # get yield value of each field
+                    fallback_function=(lambda v: v)) 
+                    # in extensible structs there may be random extra keys - just return these
+                    # as however python likes them because we can make no guarantees about them
                 )
 
-    return is_valid, yield_as
+    # combinator function to merge parent yield with child
+    # required because parent fields may be present that are not described in child validity
+    combinator = (lambda as_child, as_parent:
+                  # merge resulting structs
+                  ( lambda value, params, as_child=as_child, as_parent=as_parent:
+                        merge_replace(as_parent(value, params), as_child(value, params))
+                  )
+                )
+
+    # both in form (value, specialised_params_of_type) -> ...
+    return is_valid, yield_as, combinator
