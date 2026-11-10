@@ -22,7 +22,7 @@ def read_aliases(container: dict, names: set[str]):
         if not is_type_or_equivalent(equivalents, set):
             if is_type_or_equivalent(equivalents, str):
                 # allow single strings to be given as aliases rather than a whole set
-                equivalents = set(equivalents)
+                equivalents = set([equivalents])
             else:
                 raise BadTypeDefinition(f"Aliases {equivalents} in {container} must be a set of strings without duplicates or a single string.")
         # confirm all aliases are strings
