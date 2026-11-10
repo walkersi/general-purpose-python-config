@@ -44,7 +44,7 @@
                         "required": false
                     }
                 },
-                "extensible": false
+                "extensible": true
             }
 
         }
