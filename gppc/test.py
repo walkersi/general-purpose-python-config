@@ -1,9 +1,12 @@
-from datatypes.types import parse_type_files, print_all_types, get_type
+from datatypes.type_maps import print_all_types, get_type
+from datatypes.type_generation import parse_type_files
 from jsonio.io import load
+import json
 
 type_dict = load("datatypes/built_in_primitive.json")
 type_dict2 = load("datatypes/built_in_complex.json")
-parse_type_files(type_dict, type_dict2)
+type_dict3 = load("datatypes/built_in_poly.json")
+parse_type_files(type_dict, type_dict2, type_dict3)
 print_all_types()
 
 # test type values
@@ -15,10 +18,31 @@ positive_number = get_type("positive number")
 boolean = get_type("boolean")
 duration = get_type("duration")
 percent = get_type("percent")
+obj = get_type("object")
+keyed_obj = get_type("keyed object")
+sub = get_type("test sub object")
 
+"""
 while True:
     value = input(":: ")
     valid = percent.is_valid(value)
     print(valid)
     if valid:
         print("Yield as: ", percent.yield_as(value))
+"""
+
+def valid_yield(value, type):
+    valid = type.is_valid(value)
+    print(valid, "for", type.name)
+    if valid:
+        print("Yield as: ", type.yield_as(value))
+
+
+while True:
+    try:
+        value = json.loads(input(":: "))
+        valid_yield(value, obj)
+        valid_yield(value, keyed_obj)
+        valid_yield(value, sub)
+    except json.JSONDecodeError:
+        print("Bad Json")

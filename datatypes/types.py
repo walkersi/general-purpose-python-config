@@ -18,8 +18,8 @@ class Type:
         # store parent (which may be the default root, data)
         self.parent = parent
         # store as method-like
-        self.__is_valid = valid
-        self.__yield_as = (lambda value: value) if yield_as == None else yield_as
+        self._is_valid = valid
+        self._yield_as = (lambda value: value) if yield_as == None else yield_as
         # use the name as the default description if not provided
         self.description = description if description else name
         # there may be no aliases
@@ -46,12 +46,53 @@ class Type:
 
     # returns true only if the given value is a member of this type
     def is_valid(self, value):
-        return self.__is_valid(value)
+        return self._is_valid(value)
 
     # given a value that is valid for this type, returns the value to pass up to
     # application logic derived from that value (they may match)
     def yield_as(self, value):
-        return self.__yield_as(value)
+        return self._yield_as(value)
+
+# type composed of a single scalar value
+# e.g. a string, integer, or a list (without constraints on its contents)
+# scalars therefore cannot be parameterised because they do not have internal subtypes
+class ScalarType(Type):
+    def is_valid(self, value):
+        return self._is_valid(value)
+
+    def yield_as(self, value):
+        # ignore params
+        return self._yield_as(value)
+
+# a type that can be parameterised
+# composed of multiple subtypes that may also be generic
+# all child types of a generic are inherently GenericType (?)
+class GenericType(Type):
+    # where parameters is the FULL param dict (inherited/overridden from parentage)
+    def __init__(self, name: str, parent: Type, parameters: dict,
+                     valid, yield_as = None, description = None, aliases: list = None):
+        super().__init__(name, parent, valid, 
+            yield_as=yield_as, description=description, aliases=aliases)
+
+        self.parameters = parameters
+        
+
+    # returns true if this vector has ALL given parameter names
+    def has_params(self, parameters: dict):
+        return not (set(parameters.keys()) - set(self.parameters.keys()))
+
+
+    def get_params(self):
+        return self.parameters
+
+    # returns true if [value] is valid for this type GIVEN defined parameters
+    # param values can be incomplete - defaults used instead
+    def is_valid(self, value):
+        return self._is_valid(value, self.parameters)
+
+    def yield_as(self, value):
+        return self._yield_as(value, self.parameters)
+
 
 # arbitrary parent type for which any information is valid
-DATA = Type("data", None, lambda _: True)
+DATA = Type("data", None, lambda _v, _p=None: True)

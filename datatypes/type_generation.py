@@ -6,8 +6,9 @@ from exceptions.structure_exceptions import *
 from collections import deque
 from valids.dicts import *
 from valids.lists import *
-from datatypes.type_maps import TYPES, check_reserved_names
-from datatypes.types import Type, DATA
+from datatypes.type_maps import TYPES, check_reserved_names, get_type
+from datatypes.types import ScalarType, GenericType, Type, DATA
+from datatypes.parameterised_types import parse_parent_field
 
 # comments can be in string/array fields under this name
 COMMENT = "__comment"
@@ -27,20 +28,56 @@ def reject_unrecognised_keys(dictionary: dict, recognised: set[str]):
 
 # returns a function in form f(value) -> bool which is true if a value is valid for a given type
 # note that this should ALWAYS be evaluated in inheritance order to be correct
-def construct_validity_constraints(validity: dict, parent_type):
-    if parent_type:
-        # get the parent type's constraints
-        parent_valid = parent_type.is_valid
+def construct_validity_constraints(validity: dict, parent_type, overridden_parameters: dict = None):
+    # get the parent type's constraints
+    parent_valid = parent_type.is_valid
+    if not overridden_parameters:
+        # mutable default arg
+        overridden_parameters = {}
 
     reject_unrecognised_keys(validity, set(CONSTRAINT_FIELDS.keys()))
 
     # get the correct constraint handler function
+    # and the yield-style (as or with)
     handler = classify_constraint_handler(validity)
     # process constraint according to handler
-    child_is_valid, yield_as = handler(validity)
-    # combine with parent's constraints
-    is_valid = lambda value: parent_valid(value) and child_is_valid(value)
+    constrainer = handler(validity, overridden_parameters)
     
+    if len(constrainer) == 2:
+        # non generic
+        # standard non-inherited yield, inherited validity
+        child_is_valid, yield_as = constrainer
+        if parent_type != DATA:
+            # combine with parent's constraints
+            # can ignore base constraint
+            is_valid = lambda value: parent_valid(value) and child_is_valid(value)
+        else:
+            is_valid = child_is_valid
+        return is_valid, yield_as
+
+    elif len(constrainer) == 3:
+        # generic
+        # inherited yield and validity
+        child_is_valid, child_yield_as, combinator = constrainer
+        
+        if not isinstance(parent_type, ScalarType):
+            # parent is a generic, so pass it up the parameter set
+            # [or its just DATA]
+            is_valid = (lambda value, parameters:
+                # access parent check directly, since outer method has no params
+                parent_type._is_valid(value, parameters) and child_is_valid(value, parameters))
+            # merge parent/child with constraint's combinator
+            yield_as = combinator(child_yield_as, parent_type._yield_as)
+            
+        else:
+            # parent isn't generic, so only use parameters in own validity
+            is_valid = (lambda value, parameters:
+                parent_valid(value) and child_is_valid(value, parameters))
+            # assume, if this type inherits from a scalar, that it can be combined
+            # using a combinator (e.g. {} merge)
+            yield_as = combinator(child_yield_as, 
+                                    lambda value, _p: parent_type._yield_as(value)
+                                    )
     # return constraint pair
     return is_valid, yield_as
         
@@ -70,34 +107,79 @@ def parse_type_header(definition: dict):
         raise BadTypeDefinition(f"Type name(s) must be unique - {reserved} are already in use")
 
     print("Parsing type header:", type_name)
-
-    # get parent type name (do not validate yet, since field is read sequentially)
-    parent_type_name = default_or_of_type(definition, "parent", str, DATA.get_name())
-
+    parent_type_name, parent_parameters = parse_parent_field(definition)
+    
     # get the description or leave blank
     type_description = default_or_of_type(definition, "description", str, None)
 
-    return type_name, aliases, parent_type_name, type_description
+    return type_name, aliases, parent_type_name, type_description, parent_parameters
+
+
+def make_generic(definition, name, aliases, parent_type: GenericType, description, overridden_parameters: dict):
+    type_valid = default_or_of_type(definition, "valid", dict, {})
+
+    # turn the parameters into the actual key -> type mapping
+    for param_name, type_name in set(overridden_parameters.items()):
+        overridden_parameters[param_name] = get_type(type_name)
+
+    # inherit the parent's parameters (some of which may be defaults)
+    parent_base_params = {}
+    if isinstance(parent_type, GenericType):
+        parent_base_params = parent_type.get_params().copy()
+    # override any with mine
+    overridden_parameters = merge_replace(parent_base_params, overridden_parameters)
+
+    is_valid, yield_as = construct_validity_constraints(type_valid, parent_type, overridden_parameters)
+
+    return GenericType(name, parent_type, overridden_parameters, 
+        valid=is_valid, yield_as=yield_as, description=description, aliases=aliases)
+
+
+# TODO these two functions - need to resolve parameters and establish existing
+def make_scalar(definition, name, aliases, parent_type: Type, description):
+    # get the validity field and parse into constraint functions
+    type_valid = default_or_of_type(definition, "valid", dict, {})
+    is_valid, yield_as = construct_validity_constraints(type_valid, parent_type)
+    # create the type
+    return ScalarType(name, parent_type, is_valid, yield_as=yield_as, 
+                    description=description, aliases=aliases)
+    
 
 # having parsed the header successfully and constructed a parent tree, use
 # this to construct all Types from the root down
-def parse_type_body(definition, name, aliases, parent_name, description):
+def parse_type_body(definition, name, aliases, parent_name, description, parent_parameters):
     print("Parsing type body:", name)
     # validate the parent type exists
     parent_type = get_or_error(TYPES, parent_name, 
                                exception=BadTypeDefinition(f"Parent type {parent_name} could not be found for type {name}"))
-    
-    # get the validity field and parse into constraint functions
-    type_valid = default_or_of_type(definition, "valid", dict, {})
-    is_valid, yield_as = construct_validity_constraints(type_valid, parent_type)
 
-    # create the type
-    defined_type = Type(name, parent_type, is_valid, yield_as=yield_as, 
-                        description=description, aliases=aliases)
+    # own parameters (not overriding ones) - the default dict at this level, basically
+    parameters = get_or_default(definition, "parameters", {})
 
-    print("Created type:", name)
+    # handle parameters
+    if isinstance(parent_type, GenericType):
+        # check that the parent has the expected params
+        if not parent_type.has_params(parent_parameters):
+            raise BadTypeDefinition(f"Parent type {parent_name} doesn't support all of {parent_parameters} for type {name}")
+        # has parameters, so generic
+        # combine with parent params
+        # these should NOT conflict
+        if conflicts := (set(parent_parameters.keys()) & set(parameters.keys())):
+            raise BadTypeDefinition(f"Type {name} tries to override parameters in two places for params {conflicts}")
+        #  top-level overrides and new parameters at this level
+        top_level_parameters = merge(parameters, parent_parameters)
+        return make_generic(definition, name, aliases, parent_type, description, top_level_parameters)
 
-    return defined_type
+    elif parent_parameters:
+        # can't parameterise a non generic parent
+        raise BadTypeDefinition(f"Parent type {parent_name} cannot accept parameters from type {name}")
+    elif parameters:
+        # parameters specified, so generate as generic
+        # parameters are just root parameters
+        return make_generic(definition, name, aliases, parent_type, description, parameters)
+    else:
+        # parent is scalar, so is this
+        return make_scalar(definition, name, aliases, parent_type, description)
 
 def parse_type_files(*type_files: dict):
     # get the datatypes container for each
@@ -119,9 +201,9 @@ def parse_type_files(*type_files: dict):
 
     for definition in type_definitions:
         # validate the header
-        name, aliases, parent_name, description = parse_type_header(definition)
+        name, aliases, parent_name, description, parent_parameters = parse_type_header(definition)
         # construct type stub as tuple 
-        stub = (definition, name, aliases, parent_name, description)
+        stub = (definition, name, aliases, parent_name, description, parent_parameters)
         # file it under its parent
         put_no_replace(stubs_by_parent, parent_name, [])
         stubs_by_parent[parent_name].append(stub)
@@ -150,7 +232,7 @@ def parse_type_files(*type_files: dict):
     
     # tree now constructed, generate parsing order
     parse_order = heritage_tree.breadth_first()
-    # pop 'data' from parsing as it is fully built it
+    # pop 'data' from parsing as it is fully built in
     parse_order.pop(0)
 
     for stub_name in parse_order:
