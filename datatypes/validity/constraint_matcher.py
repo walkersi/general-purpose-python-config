@@ -17,6 +17,13 @@ SEQUENTIAL_HANDLER_PAIRINGS = [
     (RANGE, create_range_constraint)
 ]
 
+# generic constraints take the extra arg of 'specialised parameters' to construct
+GENERIC_CONSTRAINTS = set([STRUCTURE])
+# constraints that are 'yield with' (rather than yield as) yield dependent on parent
+# behaviour too. to do this, they return a 3rd 'combinator' function that,
+# given a parent's yielded value and the child's yielded value, combines into a final yielded value
+# combinator function is in form: f(yield_as_child, yield_as_parent) -> (value, params) where those inputs are both functions
+
 # matches the validity description to a specific constraint handler based on fields present
 def classify_constraint_handler(validity: dict):
     print("Matching constraint handler for validity dictionary:", validity)
@@ -27,6 +34,10 @@ def classify_constraint_handler(validity: dict):
     # check all existing handlers, in priority order
     for field, handler in SEQUENTIAL_HANDLER_PAIRINGS:
         if field.name in validity:
-            return handler
+            if field in GENERIC_CONSTRAINTS:
+                return handler
+            else:
+                # discard specialised params for non generics
+                return (lambda valid_dict, _, h=handler: h(valid_dict))
     # otherwise, this is not formatted correctly
     raise BadTypeDefinition("Constraints could not be constructed due to lack of primary constraint specified.")
