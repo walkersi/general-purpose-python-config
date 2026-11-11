@@ -25,7 +25,11 @@ RANGE_FUNCTIONS = {RANGE_GREATER_THAN: lambda v, b: v > b,
                    RANGE_LESS_THAN_OR_EQUAL_TO: lambda v, b: v <= b}
 
 
-def create_range_constraint(validity: dict):
+# the access function is used for when range is a coconstraint
+# defines how, given the type, to derive a number for which the range applies to
+# e.g. range may be literally of the numerical value of the type,
+# or might be for the LENGTH of a type (e.g. a collection)
+def create_range_constraint(validity: dict, access_function = None):
     # validate this field and co-constraints
     range = RANGE.validate(validity)
     # additionally, if any of the unit conversion subfields are 
@@ -91,6 +95,10 @@ def create_range_constraint(validity: dict):
         raise BadTypeDefinition("Range expression must not mix conflicting boundary definitions")
     # TODO logical check of relationship between values
     
+    # select access function - may just be default 'use this value'
+    if not access_function:
+        access_function = lambda v: v
+
     predicates = []
     # generate the range condition for each
     for constraint in range_fields: # loop through "greater_than", "less_than" etc 
@@ -101,6 +109,8 @@ def create_range_constraint(validity: dict):
         predicates.append(predicate)
 
     # form final function, which is the intersection of all boundaries
-    is_valid = lambda v: all([predicate(v) for predicate in predicates])
+    # using the value selector - not necessarily the raw literal itself
+    is_valid = (lambda v, access_func=access_function: 
+        all([predicate(access_func(v)) for predicate in predicates]))
 
     return is_valid, None

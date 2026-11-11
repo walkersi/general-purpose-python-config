@@ -12,7 +12,7 @@ class Type:
     # to the application from a given config value (e.g. to resolve aliases to a default)
     # by default, pass up the value as-is
     def __init__(self, name: str, parent: Type, 
-                 valid, yield_as = None, description = None, aliases: list = None):
+                 valid, yield_as = None, description = None, aliases: list = None, yield_combinator = None):
         # system uses this name, users can use aliases if they want to
         self.name = name
         # store parent (which may be the default root, data)
@@ -30,6 +30,10 @@ class Type:
         for alias in self.aliases:
             TYPES[alias] = self
         RESERVED_NAMES |= self.aliases
+
+        if yield_combinator == None:
+            yield_combinator = lambda as_child, as_parent: as_child
+        self.yield_combinator = yield_combinator
 
     def get_parent(self):
         return self.parent
@@ -53,6 +57,10 @@ class Type:
     def yield_as(self, value):
         return self._yield_as(value)
 
+    # returns a function to combine the yield values given this and the parent's yield funcs
+    def get_yield_combinator(self):
+        return self.yield_combinator
+
 # type composed of a single scalar value
 # e.g. a string, integer, or a list (without constraints on its contents)
 # scalars therefore cannot be parameterised because they do not have internal subtypes
@@ -70,12 +78,12 @@ class ScalarType(Type):
 class GenericType(Type):
     # where parameters is the FULL param dict (inherited/overridden from parentage)
     def __init__(self, name: str, parent: Type, parameters: dict,
-                     valid, yield_as = None, description = None, aliases: list = None):
+                     valid, yield_as = None, description = None, aliases: list = None,
+                     yield_combinator = None):
         super().__init__(name, parent, valid, 
             yield_as=yield_as, description=description, aliases=aliases)
 
         self.parameters = parameters
-        
 
     # returns true if this vector has ALL given parameter names
     def has_params(self, parameters: dict):
@@ -93,6 +101,10 @@ class GenericType(Type):
     def yield_as(self, value):
         return self._yield_as(value, self.parameters)
 
+    def get_yield_combinator(self):
+        return self.yield_combinator
+
 
 # arbitrary parent type for which any information is valid
-DATA = Type("data", None, lambda _v, _p=None: True)
+# and yield is just "as type python picks"
+DATA = Type("data", None, (lambda _v, _p=None: True), yield_as=(lambda _v, _p=None: _v))

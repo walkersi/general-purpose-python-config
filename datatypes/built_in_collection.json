@@ -1,0 +1,80 @@
+{
+    "data_types": [
+        {
+            "name": "list",
+            "description": "Any list",
+            "valid": {
+                "python": "list"
+            }
+        },
+        {
+            "name": "set",
+            "description": "Any set",
+            "valid": {
+                "python": "set"
+            }
+        },
+        {
+            "name": "set of",
+            "parent": "set",
+            "parameters": {
+                "item_type": "data"
+            },
+            "valid": {
+                "collection": {
+                    "all": "@item_type"
+                }
+            },
+            "description": "A set of any one type, specified by @item_type."
+        },
+        {
+            "name": "set of at least one",
+            "parent": "set of",
+            "valid": {
+                "collection": {
+                    "size": {
+                        "range": "n > 0"
+                    }
+                }
+            }
+        },
+        {
+            "name": "list of",
+            "parent": "list",
+            "parameters": {
+                "item_type": "data"
+            },
+            "valid": {
+                "collection": {
+                    "all": "@item_type"
+                }
+            }
+        },
+        {
+            "name": "list of at least one",
+            "parent": "list of",
+            "valid": {
+                "collection": {
+                    "size": {
+                        "range": "n > 0"
+                    }
+                }
+            }
+        },
+        {
+            "name": "set of three strings",
+            "parent": {
+                "type": "set of",
+                "parameters": {
+                    "item_type": "string"
+                }
+            },
+            "valid": {
+                "collection": {
+                    "size": 3
+                }
+            }
+        }
+
+    ]
+}

@@ -84,7 +84,8 @@ ALIASES = Constraint("aliases", dict)
 CONVERSION = Constraint("conversion", dict)
 CASE_SENSITIVE = Constraint("case_sensitive", bool)
 STRUCTURE = Constraint("structure", dict, list, set)
-EXTENSIBLE = Constraint("extensible", bool)
+EXTENSIBLE = Constraint("extensible", bool) # TODO rework
+COLLECTION = Constraint("collection", dict)
 
 # define relationships to other constraints
 PYTHON.set_compatible_cocostraints()

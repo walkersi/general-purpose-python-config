@@ -1,6 +1,6 @@
 # generates Types from a group of input jsons
 from abstracts.tree import Tree
-from datatypes.validity.constraint_matcher import classify_constraint_handler
+from datatypes.validity.constraint_matcher import classify_constraint_handler, DEFAULT_VALID, DEFAULT_YIELD, DEFAULT_COMBINATOR
 from datatypes.validity.constraints import CONSTRAINT_FIELDS
 from exceptions.structure_exceptions import *
 from collections import deque
@@ -28,6 +28,7 @@ def reject_unrecognised_keys(dictionary: dict, recognised: set[str]):
 
 # returns a function in form f(value) -> bool which is true if a value is valid for a given type
 # note that this should ALWAYS be evaluated in inheritance order to be correct
+# also returns the yield_as and possibly a combinator function
 def construct_validity_constraints(validity: dict, parent_type, overridden_parameters: dict = None):
     # get the parent type's constraints
     parent_valid = parent_type.is_valid
@@ -39,11 +40,19 @@ def construct_validity_constraints(validity: dict, parent_type, overridden_param
 
     # get the correct constraint handler function
     # and the yield-style (as or with)
+
     handler = classify_constraint_handler(validity)
-    # process constraint according to handler
-    constrainer = handler(validity, overridden_parameters)
+    if overridden_parameters and not validity:
+        # if unconstrained validity dictionary but there are parameters
+        # this is a generic child of a child
+        # use the *parents* combinator, since this one has no constraints to infer a combinator
+        constrainer = (DEFAULT_VALID, DEFAULT_YIELD, parent_type.get_yield_combinator())
+    else:
+        # process constraint according to handler
+        constrainer = handler(validity, overridden_parameters)
     
     if len(constrainer) == 2:
+        print("Creating nongeneric type")
         # non generic
         # standard non-inherited yield, inherited validity
         child_is_valid, yield_as = constrainer
@@ -53,9 +62,10 @@ def construct_validity_constraints(validity: dict, parent_type, overridden_param
             is_valid = lambda value: parent_valid(value) and child_is_valid(value)
         else:
             is_valid = child_is_valid
-        return is_valid, yield_as
+        return is_valid, yield_as, None
 
     elif len(constrainer) == 3:
+        print("Creating generic type")
         # generic
         # inherited yield and validity
         child_is_valid, child_yield_as, combinator = constrainer
@@ -79,7 +89,7 @@ def construct_validity_constraints(validity: dict, parent_type, overridden_param
                                     lambda value, _p: parent_type._yield_as(value)
                                     )
     # return constraint pair
-    return is_valid, yield_as
+    return is_valid, yield_as, combinator
         
 
 # parse an the header fields of a type definition (name/description/parent)
@@ -129,20 +139,20 @@ def make_generic(definition, name, aliases, parent_type: GenericType, descriptio
     # override any with mine
     overridden_parameters = merge_replace(parent_base_params, overridden_parameters)
 
-    is_valid, yield_as = construct_validity_constraints(type_valid, parent_type, overridden_parameters)
+    is_valid, yield_as, combinator = construct_validity_constraints(type_valid, parent_type, overridden_parameters)
 
     return GenericType(name, parent_type, overridden_parameters, 
-        valid=is_valid, yield_as=yield_as, description=description, aliases=aliases)
+        valid=is_valid, yield_as=yield_as, description=description, aliases=aliases, yield_combinator=combinator)
 
 
 # TODO these two functions - need to resolve parameters and establish existing
 def make_scalar(definition, name, aliases, parent_type: Type, description):
     # get the validity field and parse into constraint functions
     type_valid = default_or_of_type(definition, "valid", dict, {})
-    is_valid, yield_as = construct_validity_constraints(type_valid, parent_type)
+    is_valid, yield_as, combinator = construct_validity_constraints(type_valid, parent_type)
     # create the type
     return ScalarType(name, parent_type, is_valid, yield_as=yield_as, 
-                    description=description, aliases=aliases)
+                    description=description, aliases=aliases, yield_combinator=combinator)
     
 
 # having parsed the header successfully and constructed a parent tree, use

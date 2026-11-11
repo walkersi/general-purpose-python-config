@@ -1,8 +1,8 @@
 Metadata:
 -name [and type aliases]
 -description
--parent
-
+-parent [and parameter overrides]
+-parameters
 
 Constraints:
 -regex
@@ -13,22 +13,31 @@ Constraints:
 -units (with target_unit, conversion)
 -enum (with case_sensitive)
 -aliases (for enum and units)
-TODO
-[need aware parent tree]:
--union [OR two types, and include a yield_like: [type in union] or [python]]
--negate
-[]
--collection
+-structure
 
+TODO
+*** Extensible constraint rework
+*** Parameter-aware parent tree -> generalised solution - use headers to create dependency graph
+---> detect cycles
+*** Implement *required notation in objects
+*** Implement Config structure files, as an object
+---> types region, with import and include/exclude, and config region
+*** Implement Config itself, as an object
+*** Implement Collections
+---> Generally homogenous (could allow union types)
+---> Sets - set unique-key
+---> Ordered Set - [list without duplicates]
+*** Discrete unit type (accomplish by defining a *step* as a unit subconstraint)
+*** Union and negation types - [OR two types, and yield_like: [type in union] or [python]]
+*** Application level types
+
+-collection
   - collection types are encoded as json lists
   - collection can take value: "typed", "flexible", "predefined"
   - predefined incorporate types structure below
   - collections which are always typed cannot be added to config as themselves
   - must be described as list of xyz
   - or as list: {types: [x, y, z], size: n} or {types: x, size: {min: n, max: n2}}
-
--discrete unit
--precision
 
 
 Provided types:
@@ -45,15 +54,18 @@ Provided types:
 -negative integer
 -duration (unit)
 -percentage (unit)
+-object
+-keyed object
+
 
 TODO
+generics:
 -list of [x]
 -set of [x]
 -array of [x]
 -at least one [x]
+others:
 -byte [expressed as 0x__, or 0x13]
-
--object definition -- this is what Config itself will be!
   
 
 -lists like:
