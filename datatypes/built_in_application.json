@@ -1,16 +1,41 @@
 {
     "data_types": [
         {
-            "name": ["url", "link", "hyperlink"]
+            "name": ["url", "link", "hyperlink"],
+            "parent": "string",
+            "valid": {
+                "regex": "^(https?:\/\/)?(www\\.)?[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}\\b([-a-zA-Z0-9()@:%_\\+.~#?&//=]*)$"
+            }
         },
         {
-            "name": ["ipv4", "ipv4 address"]
+            "name": ["ipv4", "ipv4 address"],
+            "parent": "string",
+            "valid": {
+                "regex": "^((([01]?\\d?\\d)|(2[0-4]\\d)|(25[0-5]))\\.){3}((([01]?\\d?\\d)|(2[0-4]\\d)|(25[0-5])))$"
+            }
         },
         {
-            "name": ["ipv6", "ipv6 address"]
+            "name": ["ipv6", "ipv6 address"],
+            "parent": "string",
+            "valid": {
+                "regex": "^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$"
+            }
         },
         {
-            "name": ["mac", "mac address"]
+            "name": ["ip", "any ip", "ip address"],
+            "valid": {
+                "union": {
+                    "types": ["ipv4", "ipv6"],
+                    "yields_like": "string"
+                }
+            }
+        },
+        {
+            "name": ["mac", "mac address"],
+            "parent": "string",
+            "valid": {
+                "regex": "^([0-9a-fA-F]{1,2}[:-]){5}[0-9a-fA-F]{1,2}$"
+            }
         }
     ]
 }
