@@ -2,6 +2,7 @@ from valids.casts import is_type_or_equivalent
 from datatypes.types import DATA
 from valids.dicts import get_or_default, get_as_type_or_error, get_as_type_error_default, merge
 from exceptions.structure_exceptions import *
+from datatypes.type_maps import get_type
 
 # validation parsing of parameterised type definitions
 # which may be in parent inheritence field, structure usage field, or structure definition field
@@ -50,3 +51,20 @@ def parse_parent_field(definition: dict):
                 + " {type: name, parameters: {param1: ..., param2: ...}} ")
 
     return parent_name, parent_params
+
+
+# given a string type name which *may* be parameteric, and *may* not exist,
+# returns the param name to look up or None if it is not parametric, the Type instance or None, 
+# or raises a error
+def resolve_type_name(type_name: str):
+
+    parameter_lookup = None
+    found_type = None
+    if type_name[0] == PARAMETER_SYMBOL:
+        # param lookup
+        parameter_lookup = type_name[1:]
+    else:
+        # check named type exists
+        found_type = get_type(type_name)
+
+    return parameter_lookup, found_type
