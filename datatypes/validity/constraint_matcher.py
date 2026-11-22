@@ -6,12 +6,14 @@ from datatypes.validity.constraint_range import create_range_constraint
 from datatypes.validity.constraint_regex import create_regex_constraint 
 from datatypes.validity.constraint_structure import create_structure_constraint
 from datatypes.validity.constraint_collections import create_collection_constraint
+from datatypes.validity.constraint_union import create_union_constraint
 from datatypes.validity.constraints import *
 
 # pairs constraints to their handler function, to be checked in the specified order
 SEQUENTIAL_HANDLER_PAIRINGS = [
     (PYTHON, create_pythonic_constraint),
     (REGEX, create_regex_constraint),
+    (UNION, create_union_constraint),
     (COLLECTION, create_collection_constraint), # collection size, and member types
     (ENUM, create_enum_constraint),
     (STRUCTURE, create_structure_constraint),
@@ -24,7 +26,7 @@ DEFAULT_YIELD = lambda _v, _p: _v
 DEFAULT_COMBINATOR = lambda _as_child, _as_parent: _as_child
 
 # generic constraints take the extra arg of 'specialised parameters' to construct
-GENERIC_CONSTRAINTS = set([STRUCTURE, COLLECTION])
+GENERIC_CONSTRAINTS = set([STRUCTURE, COLLECTION, UNION])
 # constraints that are 'yield with' (rather than yield as) yield dependent on parent
 # behaviour too. to do this, they return a 3rd 'combinator' function that,
 # given a parent's yielded value and the child's yielded value, combines into a final yielded value
