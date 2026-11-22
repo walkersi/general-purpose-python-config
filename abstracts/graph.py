@@ -1,6 +1,7 @@
 # standard undirected weighted graph
 # allows arbitrary weights and additional arbitrary information on edges
 import math
+from collections import deque
 
 class Edge:
     def __init__(self, from_node, to_node, weight, *data):
@@ -16,7 +17,6 @@ class Node:
 
     def add_edge(self, to_node, weight, data):
         self.edges.add(Edge(self, to_node, weight, data))
-
     
     # returns the set of nodes reachable from this one
     # depth search the graph, basically
@@ -53,6 +53,85 @@ class Graph:
     # returns set of nodes that cannot be reached from the given node
     def get_unreachable_nodes(self, node: Node):
         return self.nodes - node.reaches()
+
+
+    # returns true iff this graph (which may be directed) has a cycle
+    def has_cycle(self):
+        # three colouring
+        # 0 is unvisited, 1 is visited on this path, 2 is fully visited
+        visited = {node.value: 0 for node in self.nodes}
+
+        # recurse using depth first
+        # returns true if cycle found
+        def depth_first_edge_safe(node, visited):
+            visited[node.value] = 1
+
+            for edge in node.edges:
+                neighbour = edge.to_node
+
+                if visited[neighbour.value] == 1:
+                    # cycle in this path
+                    return True
+                elif visited[neighbour.value] == 0:
+                    if depth_first_edge_safe(neighbour, visited):
+                        # cycle
+                        return True
+            # fully visited this node
+            visited[node.value] = 2
+            return False
+
+        # take path from each node
+        for node in self.nodes:
+            if visited[node.value] == 0:
+                if depth_first_edge_safe(node, visited):
+                    return True
+
+        return False
+
+    # assumes graph to be fully connected and have no cycles
+    def breadth_first(self, source: Node):
+        order = []    
+        visit_next = deque([source])
+        while visit_next:
+            node = visit_next.popleft()
+            # don't duplicate for later dependencies
+            if node.value not in order:
+                order.append(node.value)
+            for edge in node.edges:
+                neighbour = edge.to_node
+                visit_next.append(neighbour)
+
+        return order
+
+    # returns an partial ordering where any node with
+    # direct dependency on (an edge to) another node
+    # is strictly after that node, but otherwise, the ordering is arbitrary
+    # assumes no cycles (see has_cycle) and fully connected
+    # i.e. assumes existence of some root node with no prerequisites
+    def prerequisites_first(self):
+        unvisited = self.nodes.copy()
+        order = []
+
+        def prerequisites_of(node, unvisited: set):
+            internal_order = []
+            
+            for edge in node.edges:
+                prerequisite = edge.to_node
+                # prequisite must come before node
+                if prerequisite in unvisited:
+                    # if we haven't already handled this node, we now have to
+                    unvisited.remove(prerequisite)
+                    internal_order += prerequisites_of(prerequisite, unvisited)
+
+            internal_order.append(node)
+            return internal_order
+
+        # pick an arbitrary starting node
+        while unvisited:
+            node = unvisited.pop()
+            order += prerequisites_of(node, unvisited)
+
+        return [n.value for n in order]
 
     # assumes graph to be fully connected (see fully_connected)
     # gets the shortest path by weights from node1 to node2 and returns the weights
