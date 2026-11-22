@@ -7,7 +7,8 @@ type_dict = load("datatypes/built_in_primitive.json")
 type_dict2 = load("datatypes/built_in_complex.json")
 type_dict3 = load("datatypes/built_in_poly.json")
 type_dict4 = load("datatypes/built_in_collection.json")
-parse_type_files(type_dict, type_dict2, type_dict3, type_dict4)
+type_dict5 = load("datatypes/built_in_application.json")
+parse_type_files(type_dict, type_dict2, type_dict3, type_dict4, type_dict5)
 print_all_types()
 
 # test type values
@@ -26,6 +27,7 @@ set_type = get_type("set")
 set_of = get_type("set of")
 at_least_one = get_type("set of at least one")
 set_of_strings = get_type("set of three strings")
+ip_address = get_type("ip")
 
 """
 while True:
@@ -46,9 +48,6 @@ def valid_yield(value, type):
 while True:
     try:
         value = json.loads(input(":: "))
-        valid_yield(value, set_type)
-        valid_yield(value, set_of)
-        valid_yield(value, at_least_one) 
-        valid_yield(value, set_of_strings)
+        valid_yield(value, ip_address)
     except json.JSONDecodeError:
         print("Bad Json")
