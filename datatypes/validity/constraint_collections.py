@@ -4,9 +4,12 @@ from datatypes.validity.constraint_range import create_range_constraint
 from valids.casts import is_type_or_equivalent
 from datatypes.parameterised_types import PARAMETER_SYMBOL
 from datatypes.type_maps import get_type
+from datatypes.type_dependency import register_dependent_constraint
 
 ALL = "all"
 SIZE = "size"
+
+register_dependent_constraint([COLLECTION.name, ALL])
 
 # only call if COLLECTION constraint present
 def create_collection_constraint(validity: dict, specialised_parameters: dict):

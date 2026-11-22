@@ -1,11 +1,11 @@
 # constraint used to specify the structure of dictionaries
 from exceptions.structure_exceptions import *
-from exceptions.config_exceptions import FieldMissingException, FieldValueInvalidException
 from datatypes.validity.constraints import STRUCTURE, EXTENSIBLE
 from valids.casts import is_type_or_equivalent
 from valids.dicts import *
 from datatypes.parameterised_types import PARAMETER_SYMBOL
 from datatypes.type_maps import get_type
+from datatypes.type_dependency import register_dependent_constraint
 
 # sub fields in structure field clarification dicts
 STRUCTURE_TYPE_NAME = "type"
@@ -14,6 +14,9 @@ STRUCTURE_DEFAULT = "default"
 
 # arbitrary sentinel: represents No default (do not use None; that could be a default value)
 NO_DEFAULT_VALUE = object()
+
+# ensure this type is processed after all the subtypes it uses
+register_dependent_constraint([STRUCTURE.name, "", STRUCTURE_TYPE_NAME])
 
 # returns the value of given field from value descriptor or throws error
 # use require/default to permit omitted values
