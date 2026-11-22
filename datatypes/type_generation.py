@@ -1,14 +1,15 @@
 # generates Types from a group of input jsons
 from abstracts.tree import Tree
+from abstracts.graph import Graph, Node
 from datatypes.validity.constraint_matcher import classify_constraint_handler, DEFAULT_VALID, DEFAULT_YIELD, DEFAULT_COMBINATOR
 from datatypes.validity.constraints import CONSTRAINT_FIELDS
 from exceptions.structure_exceptions import *
-from collections import deque
 from valids.dicts import *
 from valids.lists import *
 from datatypes.type_maps import TYPES, check_reserved_names, get_type
 from datatypes.types import ScalarType, GenericType, Type, DATA
 from datatypes.parameterised_types import parse_parent_field
+from datatypes.type_dependency import dependent_types
 
 # comments can be in string/array fields under this name
 COMMENT = "__comment"
@@ -73,7 +74,7 @@ def construct_validity_constraints(validity: dict, parent_type, overridden_param
         if not isinstance(parent_type, ScalarType):
             # parent is a generic, so pass it up the parameter set
             # [or its just DATA]
-            is_valid = (lambda value, parameters:
+            is_valid = (lambda value, parameters=None:
                 # access parent check directly, since outer method has no params
                 parent_type._is_valid(value, parameters) and child_is_valid(value, parameters))
             # merge parent/child with constraint's combinator
@@ -81,12 +82,12 @@ def construct_validity_constraints(validity: dict, parent_type, overridden_param
             
         else:
             # parent isn't generic, so only use parameters in own validity
-            is_valid = (lambda value, parameters:
+            is_valid = (lambda value, parameters=None:
                 parent_valid(value) and child_is_valid(value, parameters))
             # assume, if this type inherits from a scalar, that it can be combined
             # using a combinator (e.g. {} merge)
             yield_as = combinator(child_yield_as, 
-                                    lambda value, _p: parent_type._yield_as(value)
+                                    lambda value, _p=None: parent_type._yield_as(value)
                                     )
     # return constraint pair
     return is_valid, yield_as, combinator
@@ -145,7 +146,6 @@ def make_generic(definition, name, aliases, parent_type: GenericType, descriptio
         valid=is_valid, yield_as=yield_as, description=description, aliases=aliases, yield_combinator=combinator)
 
 
-# TODO these two functions - need to resolve parameters and establish existing
 def make_scalar(definition, name, aliases, parent_type: Type, description):
     # get the validity field and parse into constraint functions
     type_valid = default_or_of_type(definition, "valid", dict, {})
@@ -203,47 +203,69 @@ def parse_type_files(*type_files: dict):
         type_definition += definition_group
     # header parsing will automatically handle name conflicts.
 
-    # parse all headers to construct heritage tree
+    # parse all headers to construct dependency graph
     # this prevents data_types from being order sensitive
     # i.e. you can define the parent later in the file
-    stubs_by_parent = {} # map parent name to set of children
+    # this also handles parameter types, union types, etc
     stubs_by_name = {} # map type name to stub
+    dependencies_by_name = {} # map type name to any *DIRECT* dependencies
+    # which can be parent, param types, struct children, or union/negation types.
+
+    # map aliases to canonical type name
+    alias_to_original = {DATA.get_name(): DATA.get_name()}
 
     for definition in type_definitions:
         # validate the header
         name, aliases, parent_name, description, parent_parameters = parse_type_header(definition)
         # construct type stub as tuple 
         stub = (definition, name, aliases, parent_name, description, parent_parameters)
-        # file it under its parent
-        put_no_replace(stubs_by_parent, parent_name, [])
-        stubs_by_parent[parent_name].append(stub)
+        # store by type name
         stubs_by_name[name] = stub
+        # build its dependencies
+        # we have to "look ahead" at its validity dictionary
+        #  but don't actually validate anything, just pluck out type names
+        dependencies_by_name[name] = dependent_types(definition, parent_name, parent_parameters)
+        # store the alias mappings for normalisation in a sec
+        
+        if aliases:
+            for alias in aliases:
+                alias_to_original[alias] = name
+        # for convenience
+        alias_to_original[name] = name
 
-
-    # everything descends from DATA
-    heritage_tree = Tree(DATA.get_name())
-    nodes = deque([heritage_tree.value])
-    # add all children to tree
-    while True:
-        # until all groups dealt with
-        if not stubs_by_parent:
-            break
-        # get the next group of children
-        node = nodes.popleft()
-        children = stubs_by_parent[node]
-        del stubs_by_parent[node]
-        # add them to the tree
-        for child in children:
-            heritage_tree.add_child_to(node, child[1])
-            # and queue their children to now be added (if not a leaf)
-            if child[1] in stubs_by_parent:
-                nodes.append(child[1])
-    print("Generated type hierarchy tree")
+    # resolve all aliases that may appear in the dependencies themselves
+    for type_name in dependencies_by_name:
+        dependencies = dependencies_by_name[type_name]
+        normalised_dependenices = []
+        for dependent_type in dependencies:
+            normalised_dependenices.append(alias_to_original[dependent_type])
+        # store the normalised names
+        dependencies_by_name[type_name] = normalised_dependenices
     
-    # tree now constructed, generate parsing order
-    parse_order = heritage_tree.breadth_first()
+    # create graph of types to determine generation order 
+    # detect cyclic dependencies between types
+    nodes = [Node(name) for name in dependencies_by_name]
+    dependency_graph = Graph(set(nodes + [Node(DATA.get_name())]))
+    for node in nodes:
+        for dependency in dependencies_by_name[node.value]:
+            # add the dependency edges themselves
+            node.add_edge(dependency_graph.get_node_by_value(dependency), 1, None)
+
+    print("Generated dependency graph")
+
+    # no circular dependencies allowed - can't parse if this is the case
+    if dependency_graph.has_cycle():
+        raise BadTypeDefinition(f"Cannot parse type definitions - cyclical dependency detected.")
+
+    print("Validated dependency graph for cycles")
+
+    # otherwise, parse in dependency order from DATA, the global root
+    parse_order = dependency_graph.prerequisites_first()
     # pop 'data' from parsing as it is fully built in
     parse_order.pop(0)
+
+    print("Generated parse order")
+    print(parse_order)
 
     for stub_name in parse_order:
         parse_type_body(*(stubs_by_name[stub_name]))
