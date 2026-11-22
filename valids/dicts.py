@@ -51,6 +51,12 @@ def get_as_type_or_error(dictionary: dict, field: str, desired_type: type,
         type_exception = TypeError(f"Field {field} with value {value} was not of type {desired_type} - actual type was {type(value)}")
     raise type_exception
 
+def get_as_type_or_default(dictionary: dict, field: str, default, desired_type: type):
+    if field not in dictionary:
+        return default
+    elif is_type_or_equivalent(dictionary[field], desired_type):
+        return dictionary[field]
+    return default
 
 # checks if field is key in dictionary - if it is, check its type is acceptable
 # and return it or throw an error. if it isn't in dict, return default value

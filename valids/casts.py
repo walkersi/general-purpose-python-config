@@ -30,3 +30,8 @@ def is_type_or_equivalent(value, desired_type: type):
         return True
 
     return False
+
+# given a value that is definitely a list, check that all the elements
+# in the list are of the desired type
+def all_of_type_or_equivalent(values: list, desired_type):
+    return all([is_type_or_equivalent(v, desired_type) for v in values])
