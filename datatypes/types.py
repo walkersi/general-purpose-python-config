@@ -81,7 +81,7 @@ class GenericType(Type):
                      valid, yield_as = None, description = None, aliases: list = None,
                      yield_combinator = None):
         super().__init__(name, parent, valid, 
-            yield_as=yield_as, description=description, aliases=aliases)
+            yield_as=yield_as, description=description, aliases=aliases, yield_combinator=yield_combinator)
 
         self.parameters = parameters
 
