@@ -8,6 +8,22 @@
             }
         },
         {
+            "name": ["path", "file", "file path", "file name"],
+            "parent": "string",
+            "valid": {
+                "regex": "^([a-zA-Z]+:\\/)?\\/?([a-zA-Z0-9\\.\\-_ \\,\\(\\)\\[\\]\\{\\}\\#\\@\\^\\$\\%\\&\\+]*\\/)*([a-zA-Z0-9\\.\\-_ \\,\\(\\)\\[\\]\\{\\}\\#\\@\\^\\$\\%\\&\\+]+)$"
+            }
+        },
+        {
+            "name": "set of paths",
+            "parent": {
+                "type": "set of",
+                "parameters": {
+                    "item_type": "path"
+                }
+            }
+        },
+        {
             "name": ["ipv4", "ipv4 address"],
             "parent": "string",
             "valid": {
