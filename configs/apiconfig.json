@@ -1,0 +1,93 @@
+{
+    "data_types": [
+        {
+            "name": "api config file",
+            "parent": {
+                "type": "config_file",
+                "parameters": {
+                    "config": "api config"
+                }
+            }
+        },
+        {
+            "name": "auth type",
+            "parent": "string",
+            "valid": {
+                "enum": ["Bearer", "Basic", "Refresh", "JWT"],
+                "case_sensitive": true
+            }
+        },
+        {
+            "name": "logging mode",
+            "parent": "string",
+            "valid": {
+                "enum": ["verbose", "developer", "always"],
+                "case_sensitive": false
+            }
+        },
+        {
+            "name": "cache rule",
+            "parent": "object",
+            "valid": {
+                "structure": {
+                    "endpoint": "string",
+                    "expiry": "duration"
+                },
+                "extensible": false
+            }
+        },
+        {
+            "name": "cache ruleset",
+            "parent": {
+                "type": "ordered set of",
+                "parameters": {
+                    "item_type": "cache rule"
+                }
+            }
+        },
+        {
+            "name": "api config",
+            "parent": "object",
+            "valid": {
+                "structure": {
+                    "endpoint_root": "url",
+                    "requests_per_time_unit": {
+                        "type": "per duration",
+                        "required": false,
+                        "default": 1
+                    },
+                    "request_timeout": {
+                        "type": "duration",
+                        "required": false,
+                        "default": 15
+                    },
+                    "backoff_after_429": {
+                        "type": "duration",
+                        "required": false
+                    },
+                    "max_requests_in_flight": {
+                        "type": "positive integer",
+                        "required": false,
+                        "default": 1
+                    },
+                    "api_key_file": "path",
+                    "api_key_type": "auth type",
+                    "api_automatic_subfield": {
+                        "type": "string",
+                        "required": false
+                    },
+                    "api_cache_file": "path",
+                    "api_cache_dump": "path",
+                    "api_cache_separator": {
+                        "type": "string",
+                        "required": false,
+                        "default": ":"
+                    },
+                    "logger_mode": "logging mode",
+                    "cache": "cache ruleset"
+                }
+            }
+        }
+    ]
+
+}

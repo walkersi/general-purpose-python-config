@@ -1,0 +1,39 @@
+{
+    "data_types": [
+        {
+            "name": "config_file",
+            "description": "General structure for a config file.",
+            "parent": "object",
+            "parameters": {
+                "config": "object"
+            },
+            "valid": {
+                "structure": {
+                    "data_types": {
+                        "type": "list",
+                        "required": false,
+                        "default": []
+                    },
+                    "import_types": {
+                        "type": "set of paths",
+                        "required": false,
+                        "default": []
+                    },
+                    "exclude_types": {
+                        "type": "set of strings",
+                        "required": false,
+                        "default": []
+                    },
+                    "config": {
+                        "type": "@config",
+                        "required": true,
+                        "default": [] 
+                    }
+                },
+                "extensible": true
+            }
+
+        }
+
+    ]
+}
