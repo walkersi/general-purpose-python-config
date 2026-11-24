@@ -39,6 +39,30 @@
             }
         },
         {
+            "name": "per duration",
+            "description": "Must be a positive numerical value per a duration time unit",
+            "valid": {
+                "units": ["per s", "per ms", "per hr", "per day", "per min", "per week"],
+                "target_unit": "per s",
+                "aliases": {
+                    "per s": ["per sec", "per second", "/s", "s-1", "/sec", "/second"],
+                    "per ms": ["per msec", "per millisecond", "/ms", "/msec", "/millisecond"],
+                    "per min": ["per m", "per minute", "/m", "/min", "/minute"],
+                    "per day": ["per d", "/day", "/d"],
+                    "per hr": ["per h", "per hour", "/hr", "/h", "/hour"],
+                    "per week": ["per wk", "per w", "/w", "/week", "/wk"]
+                },
+                "conversion": {
+                    "per ms": "1000per s",
+                    "per s": "60per min",
+                    "per min": "60per hr",
+                    "per hr": "24per day",
+                    "per day": "7per week"
+                },
+                "range": "n >= 0"
+            }
+        },
+        {
             "name": ["percent", "percentage", "%"],
             "description": "Must be a percentage value between 0% and 100%, with the unit",
             "valid": {
