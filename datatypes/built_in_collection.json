@@ -8,11 +8,34 @@
             }
         },
         {
-            "name": "set",
+            "name": ["set", "unordered set"],
             "description": "Any set",
             "valid": {
                 "python": "set"
             }
+        },
+        {
+            "name": "ordered set",
+            "description": "A set that preserves order (i.e. a list without duplicates).",
+            "parent": "set",
+            "valid": {
+                "union": {
+                    "yield_like": "list"
+                }
+            }
+        },
+        {
+            "name": "ordered set of",
+            "parent": "ordered set",
+            "parameters": {
+                "item_type": "data"
+            },
+            "valid": {
+                "collection": {
+                    "all": "@item_type"
+                }
+            }
+
         },
         {
             "name": "set of",
@@ -62,16 +85,11 @@
             }
         },
         {
-            "name": "set of three strings",
+            "name": "set of strings",
             "parent": {
                 "type": "set of",
                 "parameters": {
                     "item_type": "string"
-                }
-            },
-            "valid": {
-                "collection": {
-                    "size": 3
                 }
             }
         }
